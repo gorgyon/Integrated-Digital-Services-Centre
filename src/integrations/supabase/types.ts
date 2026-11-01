@@ -97,6 +97,47 @@ export type Database = {
           },
         ]
       }
+      file_access_grants: {
+        Row: {
+          approved_at: string
+          approved_by: string
+          expires_at: string
+          file_id: string
+          id: string
+          purpose: string
+          recipient_id: string
+          revoked_at: string | null
+        }
+        Insert: {
+          approved_at?: string
+          approved_by: string
+          expires_at: string
+          file_id: string
+          id?: string
+          purpose: string
+          recipient_id: string
+          revoked_at?: string | null
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string
+          expires_at?: string
+          file_id?: string
+          id?: string
+          purpose?: string
+          recipient_id?: string
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_access_grants_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       files: {
         Row: {
           category: Database["public"]["Enums"]["file_category"]
@@ -194,6 +235,77 @@ export type Database = {
           },
         ]
       }
+      security_audit: {
+        Row: {
+          action: string
+          actor_id: string | null
+          details: Json
+          id: string
+          occurred_at: string
+          purpose: string | null
+          resource_id: string | null
+          resource_type: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          details?: Json
+          id?: string
+          occurred_at?: string
+          purpose?: string | null
+          resource_id?: string | null
+          resource_type: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          details?: Json
+          id?: string
+          occurred_at?: string
+          purpose?: string | null
+          resource_id?: string | null
+          resource_type?: string
+        }
+        Relationships: []
+      }
+      staff_customer_access: {
+        Row: {
+          customer_id: string
+          granted_at: string
+          granted_by: string
+          id: string
+          revoked_at: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          staff_id: string
+        }
+        Insert: {
+          customer_id: string
+          granted_at?: string
+          granted_by: string
+          id?: string
+          revoked_at?: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          staff_id: string
+        }
+        Update: {
+          customer_id?: string
+          granted_at?: string
+          granted_by?: string
+          id?: string
+          revoked_at?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_customer_access_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -220,6 +332,43 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_assign_customer: {
+        Args: {
+          _customer: string
+          _revoke?: boolean
+          _role: Database["public"]["Enums"]["app_role"]
+          _staff: string
+        }
+        Returns: undefined
+      }
+      admin_set_staff_role: {
+        Args: {
+          _remove?: boolean
+          _role: Database["public"]["Enums"]["app_role"]
+          _user: string
+        }
+        Returns: undefined
+      }
+      approve_file_access: {
+        Args: {
+          _expires: string
+          _file: string
+          _purpose: string
+          _recipient: string
+        }
+        Returns: string
+      }
+      assigned_customer: {
+        Args: {
+          _customer: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: boolean
+      }
+      file_role_allowed: {
+        Args: { _category: Database["public"]["Enums"]["file_category"] }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -227,6 +376,29 @@ export type Database = {
         }
         Returns: boolean
       }
+      owns_customer: { Args: { _customer: string }; Returns: boolean }
+      read_authorised_file: {
+        Args: { _file: string; _purpose: string }
+        Returns: {
+          category: Database["public"]["Enums"]["file_category"]
+          created_at: string
+          customer_id: string
+          id: string
+          mime_type: string | null
+          original_name: string
+          purpose: string
+          size_bytes: number | null
+          storage_path: string
+          uploaded_by: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "files"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      revoke_file_access: { Args: { _grant: string }; Returns: undefined }
     }
     Enums: {
       app_role:

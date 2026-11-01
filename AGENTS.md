@@ -15,3 +15,6 @@
 - Shared browser-safe platform identity belongs in `src/lib/platform.ts`; future business modules belong in separate `src/modules/<domain>/` directories and must reuse shared services, keeping orders and employment applications separate.
 - Deployment and backup tooling stays outside application imports in `scripts/` and `docs/`; it may use local Node APIs without putting unsupported APIs into the edge runtime.
 - M02 creates no data/storage clients or business entities; provider activation and operational backup automation require their approved later milestone.
+- Security uses database-enforced scoped assignments and customer-approved, expiring file grants; authenticated file reads must use the audited RPC, never direct table reads or unlogged signed URLs, so API callers cannot bypass purpose checks.
+- Role changes use audited administrator RPCs, deny self-modification and admin promotion, and leave first-admin/employer bootstrap to a trusted operator; ordinary table writes must not enable escalation.
+- Permission regression tests reconstruct the migrations in isolated PostgreSQL (PGlite), using actual database roles rather than mocked predicates; this keeps destructive test fixtures out of the live database.
