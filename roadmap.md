@@ -1,9 +1,10 @@
-# M02 — deployable skeleton and backup plan only
+# M03 — shared database schema slices only
 
-- [x] Replace template with a non-operational IDSC preparation screen.
-- [x] Establish safe environment/deployment checks and production CI configuration.
-- [x] Establish proposed database/original-file backup policy and restoration procedure.
-- [x] Run seven tests and demonstrate running screen, refresh and mobile fit.
-- [x] Record results and stop for review before M03.
-- [ ] Confirm M02 remote sync and successful production Actions build — needs owner GitHub verification; agent has no Git sync status access.
-- [ ] Approve backup destination/budget, policy, alert recipient and restore operator — needs Lillian's decision; real automation/restoration requires future data/storage approval.
+- [x] Enable Lovable Cloud (hosting, database, file storage platform; built-in backups retained, no extra paid services).
+- [x] Apply shared schema migration: roles, customer profiles (guest + registered), file vault metadata, separate orders and employment applications.
+- [x] Enable Row-Level Security with policies on every table; grants for app and service access.
+- [x] Add constraints and indexes (guest minimum details, Cash on Collection rules, unique reusable file records).
+- [x] Add 8 automated schema tests; full suite 15/15 passing.
+- [x] Verify live database structure, constraints, RLS and policies via read-only queries.
+- [ ] Lillian reviews M03 and confirms the migration synchronised to her GitHub repository — needs owner verification; agent has no Git sync status access.
+- [ ] M04 and later milestones — blocked until Lillian gives explicit written approval.
