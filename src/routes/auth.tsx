@@ -49,6 +49,8 @@ function friendlyError(message: string): string {
     return "Please confirm your email address first — check your inbox for the confirmation link.";
   if (m.includes("user already registered"))
     return "An account with this email already exists. Try signing in instead.";
+  if (m.includes("not allowed"))
+    return "This email address cannot be used. Please check it and try again.";
   if (m.includes("password")) return "Password must be at least 8 characters.";
   return "Something went wrong. Please try again.";
 }
