@@ -13,6 +13,7 @@ decisions; detailed architecture lives in the approved Phase 0 deliverables.
 | 2026-11-01 | M01 accepted; M02 only authorised | Lillian confirmed repository ownership under `gorgyon`, direct file access and working sync. M02 is limited to skeleton, safe deployment configuration and backup plan; no M03 or business functionality. |
 | 2026-11-01 | Backup storage deferred; Lovable Cloud confirmed as platform | Separate off-site backup storage (R2/Backblaze etc.) deferred until before production launch. Use Lovable Cloud for hosting, database and file storage; retain built-in backups at no extra cost; no additional paid backup services or credit purchases without approval. |
 | 2026-11-01 | M02 accepted; M03 authorised | M03 limited to shared database schema slices only: migrations, constraints, indexes, RLS preparation and tests. No business functionality, no M04. |
+| 2026-11-01 | M03 accepted; M04 authorised only | Lillian confirmed the M03 SQL in GitHub. M04 covers RLS, role boundaries, purpose-specific file consent and audit, plus bypass tests. No login screens, payments or M05. |
 
 ## Milestone log
 
@@ -21,7 +22,8 @@ decisions; detailed architecture lives in the approved Phase 0 deliverables.
 | M01 | Owner-controlled GitHub repository: source code, manifests, lockfile, config example, migration structure, tests, developer docs; no secrets committed; owner/admin control with the client; independent cloning verified | Complete — repository connected and synced; independent clone verified by the client |
 | M02 | Non-operational English preparation screen; environment guard; explicit deployment target; GitHub production verification workflow; backup/restore plan | Implemented locally, awaiting remote sync/production Actions verification and backup-policy decisions; not fully signed off |
 | M03 | Shared database schema slices: `user_roles` + `has_role`, `customer_profiles` (guest + registered), `files` vault metadata, `orders` and `employment_applications` as separate entities; RLS enabled with policies on all tables; constraints, indexes; 8 schema tests | Implemented and verified in the live database; awaiting Lillian's review and sign-off. Migration file: `drizzle/migrations/0000_m03_shared_schema.sql` (this project uses Drizzle migrations, not `supabase/migrations/`; the misleading placeholder README there was removed on 2026-11-01) |
-| M04+ | Not started — each milestone requires explicit written approval after the previous one is demonstrated and accepted | — |
+| M04 | Review and harden existing RLS; scoped staff access, customer-approved file permissions, audit and actual PostgreSQL bypass tests | Implemented; live policies verified; owner GitHub sync confirmation and review pending. See `docs/M04_SECURITY.md`. Hosted authenticated API and actual-file download checks unavailable: no auth users or storage buckets exist yet. |
+| M05+ | Not started — explicit written approval required after M04 review | Blocked |
 
 ### M02 checks and review blockers
 
