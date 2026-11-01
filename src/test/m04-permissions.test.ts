@@ -26,7 +26,7 @@ beforeAll(async () => {
     GRANT USAGE ON SCHEMA auth TO anon,authenticated,service_role;
     GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon,authenticated,service_role;`);
   await db.exec(readFileSync("drizzle/migrations/0000_m03_shared_schema.sql", "utf8"));
-  await db.exec(readFileSync(process.env.M04_SQL_PATH ?? "drizzle/migrations/0001_m04_security_boundaries.sql", "utf8"));
+  await db.exec(readFileSync("drizzle/migrations/0001_m04_security_boundaries.sql", "utf8"));
   await db.exec(`INSERT INTO auth.users(id) SELECT ('00000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid FROM generate_series(1,10) n;`);
   for (const [role, n] of Object.entries(actors)) {
     await db.exec(`INSERT INTO public.user_roles(user_id,role) VALUES('${id(n)}','${role === "other" ? "customer" : role === "otherEmployer" ? "employer" : role}');`);
@@ -103,6 +103,22 @@ describe("M04 actual PostgreSQL permission boundaries", () => {
   });
   it("owner cannot read another customer's file", async () => {
     await asUser(1); await expect(fileRead(202)).rejects.toThrow(/Access denied/);
+  });
+  it("career staff cannot read a sensitive file without customer approval", async () => {
+    await asUser(7); await expect(fileRead()).rejects.toThrow(/Access denied/);
+  });
+  it("employer without approval cannot read customer documents", async () => {
+    await asUser(9); await expect(fileRead()).rejects.toThrow(/Access denied/);
+  });
+  it("access grants cannot be forged through direct inserts", async () => {
+    await asUser(9); await expect(db.exec(`INSERT INTO public.file_access_grants(file_id,recipient_id,purpose,approved_by,expires_at) VALUES('${id(201)}','${id(9)}','career_review','${id(1)}',now()+interval '1 day')`)).rejects.toThrow(/permission denied/);
+  });
+  it("front desk creates guest records without linking an arbitrary account", async () => {
+    await asUser(4);
+    expect((await db.query(`INSERT INTO public.customer_profiles(full_name,phone,created_by) VALUES('Test guest','test-guest','${id(4)}') RETURNING is_guest`)).rows).toEqual([{is_guest:true}]);
+  });
+  it("front desk cannot forge a registered customer insert", async () => {
+    await asUser(4); await expect(db.exec(`INSERT INTO public.customer_profiles(full_name,phone,user_id,is_guest,created_by) VALUES('Forged','test','${id(10)}',false,'${id(4)}')`)).rejects.toThrow(/row-level security/);
   });
   it("administrator has no blanket sensitive document access", async () => {
     await asUser(3); await expect(fileRead()).rejects.toThrow(/Access denied/);
