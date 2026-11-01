@@ -27,6 +27,9 @@ beforeAll(async () => {
     GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon,authenticated,service_role;`);
   await db.exec(readFileSync("drizzle/migrations/0000_m03_shared_schema.sql", "utf8"));
   await db.exec(readFileSync("drizzle/migrations/0001_m04_security_boundaries.sql", "utf8"));
+  // Reproduce the live provider's broad defaults before applying explicit hardening.
+  await db.exec(`GRANT ALL ON public.user_roles,public.customer_profiles,public.orders,public.employment_applications,public.files,public.security_audit,public.staff_customer_access,public.file_access_grants TO anon,authenticated;`);
+  await db.exec(readFileSync("drizzle/migrations/0002_m04_explicit_grant_hardening.sql", "utf8"));
   await db.exec(`INSERT INTO auth.users(id) SELECT ('00000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid FROM generate_series(1,10) n;`);
   for (const [role, n] of Object.entries(actors)) {
     await db.exec(`INSERT INTO public.user_roles(user_id,role) VALUES('${id(n)}','${role === "other" ? "customer" : role === "otherEmployer" ? "employer" : role}');`);
@@ -174,6 +177,12 @@ describe("M04 actual PostgreSQL permission boundaries", () => {
   });
   it("audit records cannot be forged or altered", async () => {
     await asUser(3); await expect(db.exec("UPDATE public.security_audit SET action='forged'" )).rejects.toThrow(/permission denied/);
+  });
+  it("provider default grants cannot permit RLS-bypassing truncation", async () => {
+    await asUser(3); await expect(db.exec("TRUNCATE public.security_audit")).rejects.toThrow(/permission denied/);
+  });
+  it("provider defaults cannot permit forged audit inserts", async () => {
+    await asUser(3); await expect(db.exec("INSERT INTO public.security_audit(action,resource_type) VALUES('forged','file')")).rejects.toThrow(/permission denied/);
   });
   it("ordinary staff cannot read the audit trail", async () => {
     await asUser(4); expect((await db.query("SELECT * FROM public.security_audit")).rows).toHaveLength(0);

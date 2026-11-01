@@ -4,7 +4,7 @@
 
 Reviewed all 18 M03 policies. Removed broad staff file access and blanket admin access to customer records. Preserved all five M03 tables, relationships and existing rows. Added only three security records: staff/customer assignments, customer-approved file grants, and an append-only security audit. M03 was empty before M04; no test customer data was placed in the live database.
 
-Migration: `drizzle/migrations/0001_m04_security_boundaries.sql`. Apply through the migration journal after M03, not by manually executing M03 again. Tests reconstruct both migrations in a fresh database.
+Migrations: `drizzle/migrations/0001_m04_security_boundaries.sql` and `0002_m04_explicit_grant_hardening.sql`. Live inspection found broad provider default grants, including TRUNCATE, so the second migration explicitly removes all default privileges and regrants only intended access. Apply through the migration journal after M03, not by manually executing M03 again. Tests reconstruct all migrations and reproduce provider defaults before hardening.
 
 ## Role demonstration
 
