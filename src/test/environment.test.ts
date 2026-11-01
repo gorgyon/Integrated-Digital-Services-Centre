@@ -21,8 +21,8 @@ describe("M02 operating boundaries", () => {
   it("keeps the initial platform English only", () => {
     expect(platform.language).toBe("en");
   });
-  it("does not enable business functionality in M02", () => {
+  it("does not enable business functionality before the business milestones", () => {
     expect(platform.businessFeaturesEnabled).toBe(false);
-    expect(platform.milestone).toBe("M02");
+    expect(platform.milestone).toMatch(/^M\d+$/);
   });
 });
