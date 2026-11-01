@@ -6,5 +6,9 @@
 - [x] Add constraints and indexes (guest minimum details, Cash on Collection rules, unique reusable file records).
 - [x] Add 8 automated schema tests; full suite 15/15 passing.
 - [x] Verify live database structure, constraints, RLS and policies via read-only queries.
-- [ ] Lillian reviews M03 and confirms the migration synchronised to her GitHub repository — needs owner verification; agent has no Git sync status access.
-- [ ] M04 and later milestones — blocked until Lillian gives explicit written approval.
+- [x] Lillian approved M03 and confirmed its migration in GitHub on 2026-11-01.
+- [ ] M04: review and tighten existing policies; preserve M03 data and relationships.
+- [ ] M04: purpose-specific file authorisation, employer consent/revocation and audited access/administrative changes.
+- [ ] M04: automated real-database permission/bypass tests and live schema verification.
+- [ ] M04: demonstrate role boundaries; owner confirms GitHub sync and reviews results.
+- [ ] M05 and later — blocked pending explicit written approval after M04.
