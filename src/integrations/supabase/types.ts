@@ -365,9 +365,29 @@ export type Database = {
         }
         Returns: boolean
       }
+      create_guest_customer: {
+        Args: {
+          _email: string
+          _full_name: string
+          _phone: string
+          _reviewed_duplicates?: string[]
+        }
+        Returns: string
+      }
       file_role_allowed: {
         Args: { _category: Database["public"]["Enums"]["file_category"] }
         Returns: boolean
+      }
+      find_possible_duplicate_customers: {
+        Args: { _email: string; _phone: string }
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+          is_guest: boolean
+          matched_on: string
+          phone: string
+        }[]
       }
       has_role: {
         Args: {
@@ -376,6 +396,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      normalise_phone: { Args: { _phone: string }; Returns: string }
       owns_customer: { Args: { _customer: string }; Returns: boolean }
       read_authorised_file: {
         Args: { _file: string; _purpose: string }

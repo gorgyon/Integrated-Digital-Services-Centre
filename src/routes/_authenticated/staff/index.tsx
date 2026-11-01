@@ -59,9 +59,16 @@ function StaffHomePage() {
                 ))}
               </div>
             </div>
+            {staffRoles.includes("front_desk") ? (
+              <Link
+                to="/staff/guests"
+                className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Guest customer intake
+              </Link>
+            ) : null}
             <p className="text-sm text-muted-foreground">
-              Staff tools are still in preparation. Your access is limited to the
-              roles above, assigned by the administrator.
+              Your access is limited to the roles above, assigned by the administrator.
             </p>
           </CardContent>
         </Card>
