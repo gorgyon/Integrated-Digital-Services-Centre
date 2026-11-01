@@ -14,16 +14,258 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      customer_profiles: {
+        Row: {
+          consent_recorded_at: string | null
+          consent_to_store: boolean
+          created_at: string
+          created_by: string | null
+          email: string | null
+          full_name: string
+          id: string
+          is_guest: boolean
+          phone: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          consent_recorded_at?: string | null
+          consent_to_store?: boolean
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          full_name: string
+          id?: string
+          is_guest?: boolean
+          phone: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          consent_recorded_at?: string | null
+          consent_to_store?: boolean
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          is_guest?: boolean
+          phone?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      employment_applications: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          employer_name: string | null
+          id: string
+          job_title: string
+          status: Database["public"]["Enums"]["application_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          employer_name?: string | null
+          id?: string
+          job_title: string
+          status?: Database["public"]["Enums"]["application_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          employer_name?: string | null
+          id?: string
+          job_title?: string
+          status?: Database["public"]["Enums"]["application_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employment_applications_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      files: {
+        Row: {
+          category: Database["public"]["Enums"]["file_category"]
+          created_at: string
+          customer_id: string
+          id: string
+          mime_type: string | null
+          original_name: string
+          purpose: string
+          size_bytes: number | null
+          storage_path: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["file_category"]
+          created_at?: string
+          customer_id: string
+          id?: string
+          mime_type?: string | null
+          original_name: string
+          purpose: string
+          size_bytes?: number | null
+          storage_path: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["file_category"]
+          created_at?: string
+          customer_id?: string
+          id?: string
+          mime_type?: string | null
+          original_name?: string
+          purpose?: string
+          size_bytes?: number | null
+          storage_path?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "files_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          collected_at_centre: boolean
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          id: string
+          order_number: string
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          payment_status: Database["public"]["Enums"]["payment_status"]
+          service_type: string
+          status: Database["public"]["Enums"]["order_status"]
+          updated_at: string
+        }
+        Insert: {
+          collected_at_centre?: boolean
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          id?: string
+          order_number: string
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          service_type: string
+          status?: Database["public"]["Enums"]["order_status"]
+          updated_at?: string
+        }
+        Update: {
+          collected_at_centre?: boolean
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          id?: string
+          order_number?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          service_type?: string
+          status?: Database["public"]["Enums"]["order_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role:
+        | "admin"
+        | "front_desk"
+        | "designer"
+        | "print_operator"
+        | "career_support"
+        | "finance"
+        | "employer"
+        | "customer"
+      application_status:
+        | "draft"
+        | "preparing"
+        | "submitted"
+        | "interview"
+        | "outcome_received"
+        | "withdrawn"
+      file_category:
+        | "personal"
+        | "career"
+        | "design_asset"
+        | "approved_artwork"
+        | "deliverable"
+        | "internal"
+      order_status:
+        | "received"
+        | "quoted"
+        | "approved"
+        | "in_production"
+        | "ready_for_collection"
+        | "completed"
+        | "cancelled"
+      payment_method: "online" | "cash_on_collection" | "cash" | "eft"
+      payment_status:
+        | "unpaid"
+        | "pending_cash_on_collection"
+        | "paid"
+        | "refunded"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +392,49 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: [
+        "admin",
+        "front_desk",
+        "designer",
+        "print_operator",
+        "career_support",
+        "finance",
+        "employer",
+        "customer",
+      ],
+      application_status: [
+        "draft",
+        "preparing",
+        "submitted",
+        "interview",
+        "outcome_received",
+        "withdrawn",
+      ],
+      file_category: [
+        "personal",
+        "career",
+        "design_asset",
+        "approved_artwork",
+        "deliverable",
+        "internal",
+      ],
+      order_status: [
+        "received",
+        "quoted",
+        "approved",
+        "in_production",
+        "ready_for_collection",
+        "completed",
+        "cancelled",
+      ],
+      payment_method: ["online", "cash_on_collection", "cash", "eft"],
+      payment_status: [
+        "unpaid",
+        "pending_cash_on_collection",
+        "paid",
+        "refunded",
+      ],
+    },
   },
 } as const
