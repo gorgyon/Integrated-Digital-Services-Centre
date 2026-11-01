@@ -19,9 +19,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 type AuthSearch = { redirect?: "/account" | "/staff" };
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (search: Record<string, unknown>): AuthSearch => ({
-    redirect: search["redirect"] === "/staff" ? "/staff" : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): AuthSearch =>
+    search["redirect"] === "/staff" ? { redirect: "/staff" } : {},
   head: () => ({
     meta: [
       { title: "Sign in or create an account | IDSC" },

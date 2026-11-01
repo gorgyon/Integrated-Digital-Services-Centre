@@ -14,9 +14,7 @@ export const Route = createFileRoute("/_authenticated")({
     if (!data.user) {
       throw redirect({
         to: "/auth",
-        search: {
-          redirect: location.pathname === "/staff" ? ("/staff" as const) : undefined,
-        },
+        search: location.pathname === "/staff" ? { redirect: "/staff" as const } : {},
       });
     }
   },
