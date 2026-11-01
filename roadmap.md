@@ -7,8 +7,10 @@
 - [x] Add 8 automated schema tests; full suite 15/15 passing.
 - [x] Verify live database structure, constraints, RLS and policies via read-only queries.
 - [x] Lillian approved M03 and confirmed its migration in GitHub on 2026-11-01.
-- [ ] M04: review and tighten existing policies; preserve M03 data and relationships.
-- [ ] M04: purpose-specific file authorisation, employer consent/revocation and audited access/administrative changes.
-- [ ] M04: automated real-database permission/bypass tests and live schema verification.
+- [x] M04: review and tighten existing policies; preserve M03 data and relationships; remove unsafe provider default grants.
+- [x] M04: purpose-specific file authorisation, employer consent/revocation and audited successful access/administrative changes.
+- [x] M04: 44 real-PostgreSQL permission/bypass tests; full suite 59/59; live schema and grants verified.
+- [ ] M04: hosted authenticated HTTP and actual object-access verification — blocked: no auth users, storage buckets or approved login/file workflows exist.
+- [ ] M04: deep security scan result — pending external scanner notification.
 - [ ] M04: demonstrate role boundaries; owner confirms GitHub sync and reviews results.
 - [ ] M05 and later — blocked pending explicit written approval after M04.
