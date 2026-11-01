@@ -1,7 +1,9 @@
 # M02 — deployable skeleton and backup plan only
 
-- [ ] Replace template with a non-operational IDSC preparation screen.
-- [ ] Establish safe environment/deployment checks and production CI.
-- [ ] Establish proposed database/original-file backup policy and restoration procedure.
-- [ ] Run tests and demonstrate the running skeleton; distinguish verified checks from pending production CI and GitHub sync.
-- [ ] Record results and stop for review before M03.
+- [x] Replace template with a non-operational IDSC preparation screen.
+- [x] Establish safe environment/deployment checks and production CI configuration.
+- [x] Establish proposed database/original-file backup policy and restoration procedure.
+- [x] Run seven tests and demonstrate running screen, refresh and mobile fit.
+- [x] Record results and stop for review before M03.
+- [ ] Confirm M02 remote sync and successful production Actions build — needs owner GitHub verification; agent has no Git sync status access.
+- [ ] Approve backup destination/budget, policy, alert recipient and restore operator — needs Lillian's decision; real automation/restoration requires future data/storage approval.
