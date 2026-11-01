@@ -1,16 +1,13 @@
-# M03 — shared database schema slices only
+# M05 — customer and staff sign-in only
 
-- [x] Enable Lovable Cloud (hosting, database, file storage platform; built-in backups retained, no extra paid services).
-- [x] Apply shared schema migration: roles, customer profiles (guest + registered), file vault metadata, separate orders and employment applications.
-- [x] Enable Row-Level Security with policies on every table; grants for app and service access.
-- [x] Add constraints and indexes (guest minimum details, Cash on Collection rules, unique reusable file records).
-- [x] Add 8 automated schema tests; full suite 15/15 passing.
-- [x] Verify live database structure, constraints, RLS and policies via read-only queries.
-- [x] Lillian approved M03 and confirmed its migration in GitHub on 2026-11-01.
-- [x] M04: review and tighten existing policies; preserve M03 data and relationships; remove unsafe provider default grants.
-- [x] M04: purpose-specific file authorisation, employer consent/revocation and audited successful access/administrative changes.
-- [x] M04: 44 real-PostgreSQL permission/bypass tests; full suite 59/59; live schema and grants verified.
-- [ ] M04: hosted authenticated HTTP and actual object-access verification — blocked: no auth users, storage buckets or approved login/file workflows exist.
-- [ ] M04: deep security scan result — pending external scanner notification.
-- [ ] M04: demonstrate role boundaries; owner confirms GitHub sync and reviews results.
-- [ ] M05 and later — blocked pending explicit written approval after M04.
+- [x] Enable email/password sign-in on Lovable Cloud (no new providers, no paid services).
+- [x] Migration 0004: signup trigger grants every self-registered account only the `customer` role.
+- [x] Customer registration + sign-in at `/auth` (email confirmation required; English only; validation, loading, error states, password visibility).
+- [x] Separate staff sign-in at `/staff/sign-in`; no public staff registration; non-staff accounts are refused and signed out.
+- [x] Protected areas: `/account` (customer) and `/staff` (role-gated) behind the `_authenticated` session gate; secure sign-out (cache cleared, history replaced).
+- [x] Role-aware routing from trusted database roles via the `getMyRoles` server function.
+- [x] Tests: routing, gate placement and frontend credential-safety tests; full suite 64/64.
+- [x] Live browser verification 8/8: register→confirm→sign-in, sign-out ends session, staff sign-in, customer refused at staff area and staff sign-in, role-elevation blocked, unauthenticated redirects, M04 RLS spot-checks intact.
+- [x] Temporary M05 test accounts removed from the live database after verification.
+- [ ] Lillian confirms the new files synced to GitHub and reviews M05.
+- [ ] M06 and later — blocked pending explicit written approval after M05.

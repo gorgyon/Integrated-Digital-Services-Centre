@@ -4,6 +4,6 @@ export const platform = {
   shortName: "IDSC",
   location: "Mentz Segoreng Village",
   language: "en",
-  milestone: "M02",
+  milestone: "M05",
   businessFeaturesEnabled: false,
 } as const;

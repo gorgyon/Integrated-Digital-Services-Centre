@@ -18,3 +18,5 @@
 - Security uses database-enforced scoped assignments and customer-approved, expiring file grants; authenticated file reads must use the audited RPC, never direct table reads or unlogged signed URLs, so API callers cannot bypass purpose checks.
 - Role changes use audited administrator RPCs, deny self-modification and admin promotion, and leave first-admin/employer bootstrap to a trusted operator; ordinary table writes must not enable escalation.
 - Permission regression tests reconstruct the migrations in isolated PostgreSQL (PGlite), using actual database roles rather than mocked predicates; this keeps destructive test fixtures out of the live database.
+- Server functions live in `src/lib/*.functions.ts`, never `src/server/**` — the Vite import-protection plugin denies client-graph imports from `src/server/`, which breaks the whole client bundle.
+- Self-registration grants only the `customer` role via the `assign_customer_role_on_signup` trigger on `auth.users`; staff roles are added only through the audited admin RPC, and role-aware routing reads roles from the `getMyRoles` server function, never from browser-submitted values.
