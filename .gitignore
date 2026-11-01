@@ -31,7 +31,8 @@ dist-ssr
 *.sln
 *.sw?
 
-# Secrets & local environment — never commit real keys
-.env
+# Secrets & local environment — never commit real keys.
+# .env is auto-managed by Lovable Cloud and holds only browser-public values
+# (backend URL + publishable key); the hosted build needs it, so it is tracked.
 .env.*
 !.env.example
