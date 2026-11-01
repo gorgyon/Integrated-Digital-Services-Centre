@@ -16,11 +16,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-type AuthSearch = { redirect: "/account" | "/staff" };
+type AuthSearch = { redirect?: "/account" | "/staff" };
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (search: Record<string, unknown>): AuthSearch => ({
-    redirect: search.redirect === "/staff" ? "/staff" : "/account",
+    redirect: search["redirect"] === "/staff" ? "/staff" : undefined,
   }),
   head: () => ({
     meta: [
@@ -99,12 +99,14 @@ function AuthPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const destination = redirect ?? "/account";
+
   // Already signed in? Go straight to the intended area.
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: redirect, replace: true });
+      if (data.session) navigate({ to: destination, replace: true });
     });
-  }, [navigate, redirect]);
+  }, [navigate, destination]);
 
   async function onSignIn(e: FormEvent) {
     e.preventDefault();
@@ -120,7 +122,7 @@ function AuthPage() {
       setError(friendlyError(signInError.message));
       return;
     }
-    navigate({ to: redirect });
+    navigate({ to: destination });
   }
 
   async function onRegister(e: FormEvent) {
