@@ -40,3 +40,24 @@ Live read-only verification confirmed eight RLS-enabled tables and 14 scoped pol
 No hosted auth users or storage buckets exist. Therefore authenticated hosted HTTP requests and real object downloads are **not verified**, and M04 is not claimed as fully signed off. No customer login screen, upload/download service, payment logic or business module was added. Do not create public buckets or signed URLs later without matching authorisation and access logging.
 
 GitHub sync is managed by Lovable; the agent cannot verify remote status. Lillian must confirm the M04 migration, tests and this note appear in her repository. Stop before M05 pending written approval.
+## Hosted verification (1 Nov 2026)
+
+`scripts/m04-hosted-permission-check.ts` was run against the live hosted database through its public data API,
+using three temporary signed-in test accounts (customer A, customer B, one staff account switched through every
+staff role). Result: **69/69 checks passed**. All test rows and accounts were removed afterwards; the 60 audit
+entries those tests produced remain because the audit log is immutable.
+
+Deep security scan (1 Nov 2026): 0 findings across all scanners (critical 0, high 0, medium 0).
+
+## Permission model for destructive operations
+
+- Removed by `0002`: every implicit provider privilege for `anon` and `authenticated` on all eight tables —
+  DELETE, TRUNCATE, REFERENCES, TRIGGER, and INSERT/UPDATE everywhere except the explicit grants below.
+  Regranted: SELECT (still filtered row-by-row), INSERT on customer profiles (front-desk guest records only),
+  UPDATE on profile contact columns (full_name, phone, email) only.
+- `0003`: the security audit rejects UPDATE, DELETE and TRUNCATE from every caller, including trusted server code.
+- No app user can delete any record. Corrections go through scoped column updates; role and assignment changes go
+  through audited administrator functions. Cancellation, retention and authorised deletion will be delivered as
+  audited server-side functions in their own milestones (orders/applications remain write-locked until then).
+- Trusted server code (never shipped to browsers) retains full privileges for these future audited functions;
+  changes to roles, assignments, profiles, files and file grants are audited by triggers regardless of caller.
