@@ -133,7 +133,7 @@ function CreateGuest() {
     const { data } = validate(form);
     if (!data) return;
     const { error } = await supabase.rpc("create_guest_customer", {
-      _full_name: data.full_name, _phone: data.phone, _email: data.email || null, _reviewed_duplicates: reviewed,
+      _full_name: data.full_name, _phone: data.phone, _email: data.email, _reviewed_duplicates: reviewed,
     });
     if (error) {
       setMessage({ kind: "error", text: friendlyError(error.message) });
