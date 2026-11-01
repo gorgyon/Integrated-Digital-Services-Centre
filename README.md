@@ -57,6 +57,18 @@ configuration arrives via environment variables; `.env*` files are git-ignored.
 
 ## Built with
 
+## M02 review
+
+The home page is a non-operational preparation screen, not a customer platform.
+No business features, database, storage or paid integrations are enabled.
+See [deployment/environment instructions](docs/DEPLOYMENT.md) and the
+[proposed backup and restoration procedure](docs/BACKUP_RESTORE.md).
+Run `bun run check:env` for safe configuration checks. GitHub Actions runs tests
+and the production build; its green result must be checked after synchronisation.
+M03 requires Lillian's explicit approval.
+
+## Technology
+
 - TanStack Start (React 19, TypeScript)
 - Tailwind CSS v4 + shadcn/ui
 - Vitest
