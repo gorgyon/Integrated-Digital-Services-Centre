@@ -36,6 +36,13 @@
       "when": 1793542041904,
       "tag": "0004_m05_customer_signup_role",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793548234182,
+      "tag": "0005_m06_guest_intake",
+      "breakpoints": true
     }
   ]
 }
