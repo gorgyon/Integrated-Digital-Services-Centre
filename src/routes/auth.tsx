@@ -157,6 +157,7 @@ function AuthPage() {
       setNotice(
         "Account created. Please check your email and click the confirmation link, then sign in.",
       );
+      setTab("sign-in");
       return;
     }
     navigate({ to: "/account" });
@@ -182,7 +183,7 @@ function AuthPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="sign-in">
+            <Tabs value={tab} onValueChange={setTab}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="sign-in">Sign in</TabsTrigger>
                 <TabsTrigger value="register">Create account</TabsTrigger>
