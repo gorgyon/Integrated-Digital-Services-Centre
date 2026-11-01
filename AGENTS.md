@@ -20,3 +20,4 @@
 - Permission regression tests reconstruct the migrations in isolated PostgreSQL (PGlite), using actual database roles rather than mocked predicates; this keeps destructive test fixtures out of the live database.
 - Server functions live in `src/lib/*.functions.ts`, never `src/server/**` — the Vite import-protection plugin denies client-graph imports from `src/server/`, which breaks the whole client bundle.
 - Self-registration grants only the `customer` role via the `assign_customer_role_on_signup` trigger on `auth.users`; staff roles are added only through the audited admin RPC, and role-aware routing reads roles from the `getMyRoles` server function, never from browser-submitted values.
+- Guest customer creation goes only through the `create_guest_customer` RPC (front_desk check, duplicate-review refusal, audit entry); never insert guest profiles directly, so duplicate review and auditing cannot be skipped.

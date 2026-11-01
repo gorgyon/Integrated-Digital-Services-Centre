@@ -10,4 +10,10 @@
 - [x] Live browser verification 8/8: register→confirm→sign-in, sign-out ends session, staff sign-in, customer refused at staff area and staff sign-in, role-elevation blocked, unauthenticated redirects, M04 RLS spot-checks intact.
 - [x] Temporary M05 test accounts removed from the live database after verification.
 - [ ] Lillian confirms the new files synced to GitHub and reviews M05.
-- [ ] M06 and later — blocked pending explicit written approval after M05.
+
+# M06 — guest customer intake only
+- [x] Migration 0005: duplicate search + audited guest-creation functions (front desk only); no new tables.
+- [x] Front-desk screen /staff/guests: create, search, review duplicates, correct contact details.
+- [x] Tests: src/test/m06-guest-intake.test.ts (14); full suite 78/78.
+- [ ] Lillian reviews M06 and confirms GitHub sync.
+- [ ] M07 and later — blocked pending explicit written approval.
