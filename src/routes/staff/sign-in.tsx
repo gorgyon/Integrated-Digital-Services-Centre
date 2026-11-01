@@ -5,7 +5,7 @@ import { Building2, Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { platform } from "@/lib/platform";
 import { isStaffRole } from "@/lib/auth";
-import { getMyRoles } from "@/server/auth.functions";
+import { getMyRoles } from "@/lib/auth.functions";
 import { Button } from "@/components/ui/button";
 import {
   Card,

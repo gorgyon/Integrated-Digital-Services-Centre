@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 import { isStaffRole } from "@/lib/auth";
-import { getMyRoles } from "@/server/auth.functions";
+import { getMyRoles } from "@/lib/auth.functions";
 
 /**
  * Staff role gate. Runs after the _authenticated session gate, so the caller

@@ -4,7 +4,7 @@ import { Building2 } from "lucide-react";
 
 import { useSession, isStaffRole } from "@/lib/auth";
 import { platform } from "@/lib/platform";
-import { getMyRoles } from "@/server/auth.functions";
+import { getMyRoles } from "@/lib/auth.functions";
 import { SignOutButton } from "@/components/SignOutButton";
 import { Badge } from "@/components/ui/badge";
 import {
