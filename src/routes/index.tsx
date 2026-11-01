@@ -1,24 +1,44 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Building2 } from "lucide-react";
+import { platform } from "@/lib/platform";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "IDSC | Mentz Segoreng Village — In preparation" },
+      { name: "description", content: "Integrated Digital Services Centre, Mentz Segoreng Village. Our digital platform is in preparation." },
+      { property: "og:title", content: "IDSC — Integrated Digital Services Centre" },
+      { property: "og:description", content: "Mentz Segoreng Village. Our digital platform is in preparation." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+    <div className="flex min-h-svh flex-col bg-background text-foreground">
+      <header className="border-b border-border px-6 py-6 sm:px-12">
+        <div className="mx-auto flex max-w-6xl items-center gap-3">
+          <Building2 aria-hidden="true" className="size-7 text-primary" />
+          <span className="text-xl font-bold">{platform.shortName}</span>
+          <span className="ml-auto text-sm text-muted-foreground">{platform.location}</span>
+        </div>
+      </header>
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-6 py-24 sm:px-12">
+        <p className="mb-6 text-sm font-semibold uppercase text-primary">Mentz Segoreng Village</p>
+        <h1 className="max-w-3xl text-4xl font-semibold leading-tight sm:text-6xl">{platform.name}</h1>
+        <div className="my-10 h-1 w-16 bg-primary" />
+        <p className="text-xl font-medium">Our digital platform is in preparation.</p>
+        <p className="mt-4 max-w-xl leading-relaxed text-muted-foreground">Online services are not available yet.</p>
+      </main>
+      <footer className="border-t border-border px-6 py-6 sm:px-12">
+        <div className="mx-auto flex max-w-6xl flex-wrap justify-between gap-3 text-sm text-muted-foreground">
+          <span>Integrated Digital Services Centre</span>
+          <span>In preparation</span>
+        </div>
+      </footer>
     </div>
   );
 }
