@@ -15,6 +15,13 @@
       "when": 1793539691250,
       "tag": "0001_m04_security_boundaries",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793539765073,
+      "tag": "0002_m04_explicit_grant_hardening",
+      "breakpoints": true
     }
   ]
 }
