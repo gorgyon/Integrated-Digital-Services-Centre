@@ -11,6 +11,8 @@ decisions; detailed architecture lives in the approved Phase 0 deliverables.
 | 2026-11-01 | Phase 0 v3 architecture & design approved in principle | Modular monolith, shared platform foundation, separate business orders vs employment applications, guest customers, purpose-based file permissions, Paystack + manual cash/EFT, Cash on Collection for centre-collected physical orders only, replaceable providers, milestone-by-milestone implementation. |
 | 2026-11-01 | Initial platform language: **English only** | Applies to the interface, notifications, AI assistant and all system-generated communication. Keep the architecture flexible for future languages, but do **not** implement multilingual functionality now. |
 | 2026-11-01 | M01 accepted; M02 only authorised | Lillian confirmed repository ownership under `gorgyon`, direct file access and working sync. M02 is limited to skeleton, safe deployment configuration and backup plan; no M03 or business functionality. |
+| 2026-11-01 | Backup storage deferred; Lovable Cloud confirmed as platform | Separate off-site backup storage (R2/Backblaze etc.) deferred until before production launch. Use Lovable Cloud for hosting, database and file storage; retain built-in backups at no extra cost; no additional paid backup services or credit purchases without approval. |
+| 2026-11-01 | M02 accepted; M03 authorised | M03 limited to shared database schema slices only: migrations, constraints, indexes, RLS preparation and tests. No business functionality, no M04. |
 
 ## Milestone log
 
@@ -18,7 +20,8 @@ decisions; detailed architecture lives in the approved Phase 0 deliverables.
 |---|---|---|
 | M01 | Owner-controlled GitHub repository: source code, manifests, lockfile, config example, migration structure, tests, developer docs; no secrets committed; owner/admin control with the client; independent cloning verified | Complete — repository connected and synced; independent clone verified by the client |
 | M02 | Non-operational English preparation screen; environment guard; explicit deployment target; GitHub production verification workflow; backup/restore plan | Implemented locally, awaiting remote sync/production Actions verification and backup-policy decisions; not fully signed off |
-| M03+ | Not started — each milestone requires explicit written approval after the previous one is demonstrated and accepted | — |
+| M03 | Shared database schema slices: `user_roles` + `has_role`, `customer_profiles` (guest + registered), `files` vault metadata, `orders` and `employment_applications` as separate entities; RLS enabled with policies on all tables; constraints, indexes; 8 schema tests | Implemented and verified in the live database; awaiting Lillian's review and sign-off |
+| M04+ | Not started — each milestone requires explicit written approval after the previous one is demonstrated and accepted | — |
 
 ### M02 checks and review blockers
 
