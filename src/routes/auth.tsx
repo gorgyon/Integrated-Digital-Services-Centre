@@ -177,9 +177,9 @@ function AuthPage() {
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-12">
         <Card>
           <CardHeader>
-            <CardTitle>Customer account</CardTitle>
+            <CardTitle>Sign in</CardTitle>
             <CardDescription>
-              Sign in to your account, or create one with your email address.
+              Sign in to your account, or create a new one with your email address.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -277,12 +277,6 @@ function AuthPage() {
             </Tabs>
           </CardContent>
         </Card>
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          Centre staff?{" "}
-          <Link to="/staff/sign-in" className="font-medium text-primary underline-offset-4 hover:underline">
-            Use the staff sign-in
-          </Link>
-        </p>
       </main>
     </div>
   );
