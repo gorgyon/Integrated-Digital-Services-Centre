@@ -15,7 +15,7 @@ decisions; detailed architecture lives in the approved Phase 0 deliverables.
 
 | Milestone | Scope | Status |
 |---|---|---|
-| M01 | Owner-controlled GitHub repository: source code, manifests, lockfile, config example, migration structure, tests, developer docs; no secrets committed; owner/admin control with the client; independent cloning verified | In progress |
+| M01 | Owner-controlled GitHub repository: source code, manifests, lockfile, config example, migration structure, tests, developer docs; no secrets committed; owner/admin control with the client; independent cloning verified | Complete — repository connected and synced; independent clone verified by the client |
 | M02+ | Not started — each milestone requires explicit written approval after the previous one is demonstrated and accepted | — |
 
 ## Standing rules (from approved Phase 0)
