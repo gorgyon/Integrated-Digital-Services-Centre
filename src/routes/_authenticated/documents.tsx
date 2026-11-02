@@ -64,13 +64,13 @@ function DocumentsPage() {
       _phone: String(f.get("phone") ?? ""),
     });
     setBusy(false);
-    if (error) return toast.error("Please enter your full name and a valid phone number.");
+    if (error) { toast.error("Please enter your full name and a valid phone number."); return; }
     qc.invalidateQueries({ queryKey: ["my-customer-profile"] });
   }
 
   async function upload(file: File) {
-    if (!ALLOWED.includes(file.type)) return toast.error("Only PDF, JPG and PNG files are allowed.");
-    if (file.size > MAX_BYTES) return toast.error("Files must be 10 MB or smaller.");
+    if (!ALLOWED.includes(file.type)) { toast.error("Only PDF, JPG and PNG files are allowed."); return; }
+    if (file.size > MAX_BYTES) { toast.error("Files must be 10 MB or smaller."); return; }
     const ext = file.type === "application/pdf" ? "pdf" : file.type === "image/png" ? "png" : "jpg";
     const path = `${session!.user.id}/${crypto.randomUUID()}.${ext}`;
     setBusy(true);
@@ -79,14 +79,15 @@ function DocumentsPage() {
       .upload(path, file, { contentType: file.type, upsert: false });
     if (upErr) {
       setBusy(false);
-      return toast.error("Upload failed. Please try again.");
+      toast.error("Upload failed. Please try again.");
+      return;
     }
     const { error } = await supabase.rpc("register_career_document", {
       _path: path,
       _original_name: file.name,
     });
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("Document uploaded.");
     qc.invalidateQueries({ queryKey: ["my-career-documents"] });
   }
