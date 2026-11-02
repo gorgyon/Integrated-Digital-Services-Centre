@@ -17,3 +17,6 @@
 - [x] Tests: src/test/m06-guest-intake.test.ts (14); full suite 78/78.
 - [ ] Lillian reviews M06 and confirms GitHub sync.
 - [ ] M07 and later — blocked pending explicit written approval.
+
+# Career & Opportunities Portal (plan)
+- [ ] C4–C6 automated opportunity collection — see docs/OPPORTUNITIES_COLLECTION_PLAN.md; blocked on approval and source list.
