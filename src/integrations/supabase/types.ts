@@ -374,6 +374,11 @@ export type Database = {
         }
         Returns: string
       }
+      create_my_customer_profile: {
+        Args: { _full_name: string; _phone: string }
+        Returns: string
+      }
+      delete_my_career_document: { Args: { _file: string }; Returns: string }
       file_role_allowed: {
         Args: { _category: Database["public"]["Enums"]["file_category"] }
         Returns: boolean
@@ -395,6 +400,16 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      list_my_career_documents: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          mime_type: string
+          original_name: string
+          size_bytes: number
+        }[]
       }
       normalise_phone: { Args: { _phone: string }; Returns: string }
       owns_customer: { Args: { _customer: string }; Returns: boolean }
@@ -418,6 +433,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      register_career_document: {
+        Args: { _original_name: string; _path: string }
+        Returns: string
       }
       revoke_file_access: { Args: { _grant: string }; Returns: undefined }
     }

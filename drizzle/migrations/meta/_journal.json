@@ -43,6 +43,13 @@
       "when": 1793548234182,
       "tag": "0005_m06_guest_intake",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793617002310,
+      "tag": "0006_c1_career_documents",
+      "breakpoints": true
     }
   ]
 }
