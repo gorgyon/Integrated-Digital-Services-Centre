@@ -24,7 +24,7 @@ export const Route = createFileRoute("/staff/sign-in")({
       {
         name: "description",
         content:
-          "Staff sign-in for the Integrated Digital Services Centre, Mentz Segoreng Village.",
+          "Staff sign-in for the Integrated Digital Services Centre.",
       },
       { property: "og:title", content: "Staff sign in | IDSC" },
       {
@@ -88,7 +88,6 @@ function StaffSignInPage() {
             <Building2 aria-hidden="true" className="size-7 text-primary" />
             <span className="text-xl font-bold">{platform.shortName}</span>
           </Link>
-          <span className="ml-auto text-sm text-muted-foreground">{platform.location}</span>
         </div>
       </header>
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-12">
