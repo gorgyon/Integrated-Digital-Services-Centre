@@ -6,10 +6,10 @@ import { useSession } from "@/lib/auth";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "IDSC | Mentz Segoreng Village — In preparation" },
-      { name: "description", content: "Integrated Digital Services Centre, Mentz Segoreng Village. Our digital platform is in preparation." },
+      { title: "IDSC — In preparation" },
+      { name: "description", content: "Integrated Digital Services Centre. Our digital platform is in preparation." },
       { property: "og:title", content: "IDSC — Integrated Digital Services Centre" },
-      { property: "og:description", content: "Mentz Segoreng Village. Our digital platform is in preparation." },
+      { property: "og:description", content: "Our digital platform is in preparation." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -25,7 +25,6 @@ function Index() {
         <div className="mx-auto flex max-w-6xl items-center gap-3">
           <Building2 aria-hidden="true" className="size-7 text-primary" />
           <span className="text-xl font-bold">{platform.shortName}</span>
-          <span className="hidden text-sm text-muted-foreground sm:inline">{platform.location}</span>
           <nav className="ml-auto flex items-center gap-4 text-sm">
             {loading ? null : session ? (
               <Link to="/account" className="font-medium text-primary underline-offset-4 hover:underline">
@@ -45,7 +44,6 @@ function Index() {
         </div>
       </header>
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-6 py-24 sm:px-12">
-        <p className="mb-6 text-sm font-semibold uppercase text-primary">Mentz Segoreng Village</p>
         <h1 className="max-w-3xl text-4xl font-semibold leading-tight sm:text-6xl">{platform.name}</h1>
         <div className="my-10 h-1 w-16 bg-primary" />
         <p className="text-xl font-medium">Our digital platform is in preparation.</p>
