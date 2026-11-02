@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
+import { Route as AuthenticatedDocumentsRouteImport } from './routes/_authenticated/documents'
 import { Route as AuthenticatedStaffRouteRouteImport } from './routes/_authenticated/staff/route'
 import { Route as StaffSignInRouteImport } from './routes/staff/sign-in'
 import { Route as AuthenticatedStaffIndexRouteImport } from './routes/_authenticated/staff/index'
@@ -35,6 +36,11 @@ const AuthRoute = AuthRouteImport.update({
 const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
   id: '/account',
   path: '/account',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDocumentsRoute = AuthenticatedDocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedStaffRouteRoute = AuthenticatedStaffRouteRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/staff': typeof AuthenticatedStaffRouteRouteWithChildren
   '/account': typeof AuthenticatedAccountRoute
+  '/documents': typeof AuthenticatedDocumentsRoute
   '/staff/sign-in': typeof StaffSignInRoute
   '/staff/guests': typeof AuthenticatedStaffGuestsRoute
   '/staff/': typeof AuthenticatedStaffIndexRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/account': typeof AuthenticatedAccountRoute
+  '/documents': typeof AuthenticatedDocumentsRoute
   '/staff/sign-in': typeof StaffSignInRoute
   '/staff/guests': typeof AuthenticatedStaffGuestsRoute
   '/staff': typeof AuthenticatedStaffIndexRoute
@@ -83,6 +91,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/staff': typeof AuthenticatedStaffRouteRouteWithChildren
   '/_authenticated/account': typeof AuthenticatedAccountRoute
+  '/_authenticated/documents': typeof AuthenticatedDocumentsRoute
   '/staff/sign-in': typeof StaffSignInRoute
   '/_authenticated/staff/guests': typeof AuthenticatedStaffGuestsRoute
   '/_authenticated/staff/': typeof AuthenticatedStaffIndexRoute
@@ -94,11 +103,19 @@ export interface FileRouteTypes {
     | '/auth'
     | '/staff'
     | '/account'
+    | '/documents'
     | '/staff/sign-in'
     | '/staff/guests'
     | '/staff/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/account' | '/staff/sign-in' | '/staff/guests' | '/staff'
+  to:
+    | '/'
+    | '/auth'
+    | '/account'
+    | '/documents'
+    | '/staff/sign-in'
+    | '/staff/guests'
+    | '/staff'
   id:
     | '__root__'
     | '/'
@@ -106,6 +123,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/staff'
     | '/_authenticated/account'
+    | '/_authenticated/documents'
     | '/staff/sign-in'
     | '/_authenticated/staff/guests'
     | '/_authenticated/staff/'
@@ -146,6 +164,13 @@ declare module '@tanstack/react-router' {
       path: '/account'
       fullPath: '/account'
       preLoaderRoute: typeof AuthenticatedAccountRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/documents': {
+      id: '/_authenticated/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof AuthenticatedDocumentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/staff': {
@@ -198,11 +223,13 @@ const AuthenticatedStaffRouteRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedStaffRouteRoute: typeof AuthenticatedStaffRouteRouteWithChildren
   AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
+  AuthenticatedDocumentsRoute: typeof AuthenticatedDocumentsRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedStaffRouteRoute: AuthenticatedStaffRouteRouteWithChildren,
   AuthenticatedAccountRoute: AuthenticatedAccountRoute,
+  AuthenticatedDocumentsRoute: AuthenticatedDocumentsRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
