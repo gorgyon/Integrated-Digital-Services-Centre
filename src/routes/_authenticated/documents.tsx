@@ -188,7 +188,7 @@ function DocumentsPage() {
                         <div className="flex items-center gap-3 pb-3">
                         <FileText aria-hidden="true" className="size-5 shrink-0 text-primary" />
                         <Button variant="ghost" onClick={() => view(d.id)} className="h-auto min-w-0 flex-1 flex-col items-start whitespace-normal text-left">
-                          <span className="block truncate font-medium underline-offset-4 hover:underline">{d.original_name}</span>
+                          <span className="block w-full truncate font-medium underline-offset-4 hover:underline">{d.original_name}</span>
                           <span className="text-xs text-muted-foreground">
                             {new Date(d.created_at).toLocaleDateString("en-ZA")} · {formatSize(d.size_bytes)}
                           </span>
