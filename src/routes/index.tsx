@@ -7,8 +7,8 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "IDSC — In preparation" },
-      { name: "description", content: "Integrated Digital Services Centre. Our digital platform is in preparation." },
-      { property: "og:title", content: "IDSC — Integrated Digital Services Centre" },
+      { name: "description", content: "IDSC. Our digital platform is in preparation." },
+      { property: "og:title", content: "IDSC — In preparation" },
       { property: "og:description", content: "Our digital platform is in preparation." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -44,14 +44,14 @@ function Index() {
         </div>
       </header>
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-6 py-24 sm:px-12">
-        <h1 className="max-w-3xl text-4xl font-semibold leading-tight sm:text-6xl">{platform.name}</h1>
+        <h1 className="max-w-3xl text-4xl font-semibold leading-tight sm:text-6xl">{platform.shortName}</h1>
         <div className="my-10 h-1 w-16 bg-primary" />
         <p className="text-xl font-medium">Our digital platform is in preparation.</p>
         <p className="mt-4 max-w-xl leading-relaxed text-muted-foreground">Online services are not available yet.</p>
       </main>
       <footer className="border-t border-border px-6 py-6 sm:px-12">
         <div className="mx-auto flex max-w-6xl flex-wrap justify-between gap-3 text-sm text-muted-foreground">
-          <span>Integrated Digital Services Centre</span>
+          <span>{platform.shortName}</span>
           <span>In preparation</span>
         </div>
       </footer>

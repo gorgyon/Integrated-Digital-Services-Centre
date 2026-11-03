@@ -10,6 +10,7 @@
 <!-- LOVABLE:END -->
 
 ## Platform boundaries
+- Password creation and reset share browser-safe policy helpers and password field/checklist components; this prevents validation and presentation drift without imposing new rules on existing sign-in passwords.
 
 - Password recovery uses the existing Cloud Auth client and a public `/reset-password` route; validate recovery sessions with the provider before changing passwords so ordinary signed-in visits do not become reset flows.
 

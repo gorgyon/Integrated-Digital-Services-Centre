@@ -263,7 +263,7 @@ function AuthPage() {
                       {error}
                     </p>
                   ) : null}
-                  <Button type="submit" disabled={busy}>
+                  <Button type="submit" disabled={busy || validateRecoveryPassword(password, confirm) !== null}>
                     {busy ? <Loader2 className="size-4 animate-spin" /> : null}
                     {busy ? "Creating account…" : "Create account"}
                   </Button>
