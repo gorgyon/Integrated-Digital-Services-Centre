@@ -20,6 +20,7 @@ import { Route as AuthenticatedStaffRouteRouteImport } from './routes/_authentic
 import { Route as StaffSignInRouteImport } from './routes/staff/sign-in'
 import { Route as AuthenticatedStaffIndexRouteImport } from './routes/_authenticated/staff/index'
 import { Route as AuthenticatedStaffGuestsRouteImport } from './routes/_authenticated/staff/guests'
+import { Route as ApiPublicJobsCollectOpportunitiesRouteImport } from './routes/api/public/jobs/collect-opportunities'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -76,6 +77,12 @@ const AuthenticatedStaffGuestsRoute =
     path: '/guests',
     getParentRoute: () => AuthenticatedStaffRouteRoute,
   } as any)
+const ApiPublicJobsCollectOpportunitiesRoute =
+  ApiPublicJobsCollectOpportunitiesRouteImport.update({
+    id: '/api/public/jobs/collect-opportunities',
+    path: '/api/public/jobs/collect-opportunities',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/staff/sign-in': typeof StaffSignInRoute
   '/staff/guests': typeof AuthenticatedStaffGuestsRoute
   '/staff/': typeof AuthenticatedStaffIndexRoute
+  '/api/public/jobs/collect-opportunities': typeof ApiPublicJobsCollectOpportunitiesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -99,6 +107,7 @@ export interface FileRoutesByTo {
   '/staff/sign-in': typeof StaffSignInRoute
   '/staff/guests': typeof AuthenticatedStaffGuestsRoute
   '/staff': typeof AuthenticatedStaffIndexRoute
+  '/api/public/jobs/collect-opportunities': typeof ApiPublicJobsCollectOpportunitiesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -113,6 +122,7 @@ export interface FileRoutesById {
   '/staff/sign-in': typeof StaffSignInRoute
   '/_authenticated/staff/guests': typeof AuthenticatedStaffGuestsRoute
   '/_authenticated/staff/': typeof AuthenticatedStaffIndexRoute
+  '/api/public/jobs/collect-opportunities': typeof ApiPublicJobsCollectOpportunitiesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/staff/sign-in'
     | '/staff/guests'
     | '/staff/'
+    | '/api/public/jobs/collect-opportunities'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -138,6 +149,7 @@ export interface FileRouteTypes {
     | '/staff/sign-in'
     | '/staff/guests'
     | '/staff'
+    | '/api/public/jobs/collect-opportunities'
   id:
     | '__root__'
     | '/'
@@ -151,6 +163,7 @@ export interface FileRouteTypes {
     | '/staff/sign-in'
     | '/_authenticated/staff/guests'
     | '/_authenticated/staff/'
+    | '/api/public/jobs/collect-opportunities'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -159,6 +172,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   StaffSignInRoute: typeof StaffSignInRoute
+  ApiPublicJobsCollectOpportunitiesRoute: typeof ApiPublicJobsCollectOpportunitiesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -240,6 +254,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStaffGuestsRouteImport
       parentRoute: typeof AuthenticatedStaffRouteRoute
     }
+    '/api/public/jobs/collect-opportunities': {
+      id: '/api/public/jobs/collect-opportunities'
+      path: '/api/public/jobs/collect-opportunities'
+      fullPath: '/api/public/jobs/collect-opportunities'
+      preLoaderRoute: typeof ApiPublicJobsCollectOpportunitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -282,6 +303,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   StaffSignInRoute: StaffSignInRoute,
+  ApiPublicJobsCollectOpportunitiesRoute:
+    ApiPublicJobsCollectOpportunitiesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

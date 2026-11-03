@@ -252,6 +252,221 @@ export type Database = {
           },
         ]
       }
+      opportunities: {
+        Row: {
+          application_requirements: string | null
+          application_url: string | null
+          category: Database["public"]["Enums"]["opportunity_category"] | null
+          closes_at: string | null
+          collected_at: string
+          content_hash: string
+          dedupe_key: string
+          description: string | null
+          eligibility_criteria: string | null
+          id: string
+          last_seen_at: string
+          last_updated_at: string
+          location: string | null
+          opens_at: string | null
+          provider_name: string | null
+          removed_at_source_at: string | null
+          source_url: string
+          title: string
+        }
+        Insert: {
+          application_requirements?: string | null
+          application_url?: string | null
+          category?: Database["public"]["Enums"]["opportunity_category"] | null
+          closes_at?: string | null
+          collected_at?: string
+          content_hash: string
+          dedupe_key: string
+          description?: string | null
+          eligibility_criteria?: string | null
+          id?: string
+          last_seen_at?: string
+          last_updated_at?: string
+          location?: string | null
+          opens_at?: string | null
+          provider_name?: string | null
+          removed_at_source_at?: string | null
+          source_url: string
+          title: string
+        }
+        Update: {
+          application_requirements?: string | null
+          application_url?: string | null
+          category?: Database["public"]["Enums"]["opportunity_category"] | null
+          closes_at?: string | null
+          collected_at?: string
+          content_hash?: string
+          dedupe_key?: string
+          description?: string | null
+          eligibility_criteria?: string | null
+          id?: string
+          last_seen_at?: string
+          last_updated_at?: string
+          location?: string | null
+          opens_at?: string | null
+          provider_name?: string | null
+          removed_at_source_at?: string | null
+          source_url?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      opportunity_collection_runs: {
+        Row: {
+          errors: Json
+          finished_at: string | null
+          id: string
+          items_created: number
+          items_found: number
+          items_skipped: number
+          items_unchanged: number
+          items_updated: number
+          source_id: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          errors?: Json
+          finished_at?: string | null
+          id?: string
+          items_created?: number
+          items_found?: number
+          items_skipped?: number
+          items_unchanged?: number
+          items_updated?: number
+          source_id: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          errors?: Json
+          finished_at?: string | null
+          id?: string
+          items_created?: number
+          items_found?: number
+          items_skipped?: number
+          items_unchanged?: number
+          items_updated?: number
+          source_id?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_collection_runs_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opportunity_source_links: {
+        Row: {
+          external_id: string
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          opportunity_id: string
+          original_url: string
+          source_id: string
+        }
+        Insert: {
+          external_id: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          opportunity_id: string
+          original_url: string
+          source_id: string
+        }
+        Update: {
+          external_id?: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          opportunity_id?: string
+          original_url?: string
+          source_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_source_links_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_source_links_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opportunity_sources: {
+        Row: {
+          created_at: string
+          default_category:
+            | Database["public"]["Enums"]["opportunity_category"]
+            | null
+          enabled: boolean
+          endpoint_url: string
+          fetch_interval_hours: number
+          id: string
+          kind: Database["public"]["Enums"]["opportunity_source_kind"]
+          last_run_at: string | null
+          name: string
+          permission_basis: string | null
+          permission_evidence_url: string | null
+          permission_reviewed_at: string | null
+          requires_credentials: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_category?:
+            | Database["public"]["Enums"]["opportunity_category"]
+            | null
+          enabled?: boolean
+          endpoint_url: string
+          fetch_interval_hours?: number
+          id?: string
+          kind: Database["public"]["Enums"]["opportunity_source_kind"]
+          last_run_at?: string | null
+          name: string
+          permission_basis?: string | null
+          permission_evidence_url?: string | null
+          permission_reviewed_at?: string | null
+          requires_credentials?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_category?:
+            | Database["public"]["Enums"]["opportunity_category"]
+            | null
+          enabled?: boolean
+          endpoint_url?: string
+          fetch_interval_hours?: number
+          id?: string
+          kind?: Database["public"]["Enums"]["opportunity_source_kind"]
+          last_run_at?: string | null
+          name?: string
+          permission_basis?: string | null
+          permission_evidence_url?: string | null
+          permission_reviewed_at?: string | null
+          requires_credentials?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           collected_at_centre: boolean
@@ -547,6 +762,16 @@ export type Database = {
         | "approved_artwork"
         | "deliverable"
         | "internal"
+      opportunity_category:
+        | "job"
+        | "bursary"
+        | "scholarship"
+        | "internship"
+        | "learnership"
+        | "apprenticeship"
+        | "grant"
+        | "other"
+      opportunity_source_kind: "rss" | "api"
       order_status:
         | "received"
         | "quoted"
@@ -715,6 +940,17 @@ export const Constants = {
         "deliverable",
         "internal",
       ],
+      opportunity_category: [
+        "job",
+        "bursary",
+        "scholarship",
+        "internship",
+        "learnership",
+        "apprenticeship",
+        "grant",
+        "other",
+      ],
+      opportunity_source_kind: ["rss", "api"],
       order_status: [
         "received",
         "quoted",
