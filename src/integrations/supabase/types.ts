@@ -256,6 +256,8 @@ export type Database = {
         Row: {
           application_requirements: string | null
           application_url: string | null
+          attribution_name: string | null
+          attribution_url: string | null
           category: Database["public"]["Enums"]["opportunity_category"] | null
           closes_at: string | null
           collected_at: string
@@ -263,19 +265,27 @@ export type Database = {
           dedupe_key: string
           description: string | null
           eligibility_criteria: string | null
+          employment_type: string | null
           id: string
           last_seen_at: string
           last_updated_at: string
           location: string | null
+          location_restrictions: string[] | null
           opens_at: string | null
+          opportunity_scope: string | null
           provider_name: string | null
+          remote: boolean | null
           removed_at_source_at: string | null
+          salary_text: string | null
           source_url: string
+          south_africa_eligibility: string
           title: string
         }
         Insert: {
           application_requirements?: string | null
           application_url?: string | null
+          attribution_name?: string | null
+          attribution_url?: string | null
           category?: Database["public"]["Enums"]["opportunity_category"] | null
           closes_at?: string | null
           collected_at?: string
@@ -283,19 +293,27 @@ export type Database = {
           dedupe_key: string
           description?: string | null
           eligibility_criteria?: string | null
+          employment_type?: string | null
           id?: string
           last_seen_at?: string
           last_updated_at?: string
           location?: string | null
+          location_restrictions?: string[] | null
           opens_at?: string | null
+          opportunity_scope?: string | null
           provider_name?: string | null
+          remote?: boolean | null
           removed_at_source_at?: string | null
+          salary_text?: string | null
           source_url: string
+          south_africa_eligibility?: string
           title: string
         }
         Update: {
           application_requirements?: string | null
           application_url?: string | null
+          attribution_name?: string | null
+          attribution_url?: string | null
           category?: Database["public"]["Enums"]["opportunity_category"] | null
           closes_at?: string | null
           collected_at?: string
@@ -303,14 +321,20 @@ export type Database = {
           dedupe_key?: string
           description?: string | null
           eligibility_criteria?: string | null
+          employment_type?: string | null
           id?: string
           last_seen_at?: string
           last_updated_at?: string
           location?: string | null
+          location_restrictions?: string[] | null
           opens_at?: string | null
+          opportunity_scope?: string | null
           provider_name?: string | null
+          remote?: boolean | null
           removed_at_source_at?: string | null
+          salary_text?: string | null
           source_url?: string
+          south_africa_eligibility?: string
           title?: string
         }
         Relationships: []
@@ -412,6 +436,10 @@ export type Database = {
       }
       opportunity_sources: {
         Row: {
+          attribution_name: string | null
+          attribution_url: string | null
+          cache_etag: string | null
+          cache_marker: string | null
           created_at: string
           default_category:
             | Database["public"]["Enums"]["opportunity_category"]
@@ -430,6 +458,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attribution_name?: string | null
+          attribution_url?: string | null
+          cache_etag?: string | null
+          cache_marker?: string | null
           created_at?: string
           default_category?:
             | Database["public"]["Enums"]["opportunity_category"]
@@ -448,6 +480,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attribution_name?: string | null
+          attribution_url?: string | null
+          cache_etag?: string | null
+          cache_marker?: string | null
           created_at?: string
           default_category?:
             | Database["public"]["Enums"]["opportunity_category"]
