@@ -105,6 +105,7 @@ function AuthPage() {
     e.preventDefault();
     setError(null);
     setNotice(null);
+    setDuplicateEmail(false);
     setBusy(true);
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -277,7 +278,29 @@ function AuthPage() {
                     />
                   </div>
                   <PasswordChecklist id="register-password-checklist" password={password} confirmation={confirm} />
-                  {error ? (
+                  {duplicateEmail ? (
+                    <div role="alert" className="flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+                      <p className="text-destructive">
+                        An account with this email already exists. Please sign in or reset your password.
+                      </p>
+                      <div className="flex gap-4">
+                        <button
+                          type="button"
+                          className="font-medium text-primary underline-offset-4 hover:underline"
+                          onClick={() => { setDuplicateEmail(false); setError(null); setTab("sign-in"); }}
+                        >
+                          Sign in
+                        </button>
+                        <button
+                          type="button"
+                          className="font-medium text-primary underline-offset-4 hover:underline"
+                          onClick={() => { setDuplicateEmail(false); setError(null); setForgotPassword(true); }}
+                        >
+                          Reset your password
+                        </button>
+                      </div>
+                    </div>
+                  ) : error ? (
                     <p role="alert" className="text-sm text-destructive">
                       {error}
                     </p>
