@@ -19,7 +19,7 @@ beforeAll(async () => {
     CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT 'authenticated' $$;
     GRANT USAGE ON SCHEMA auth TO anon,authenticated,service_role;
     GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon,authenticated,service_role;`);
-  for (const f of ["0000_m03_shared_schema", "0001_m04_security_boundaries", "0002_m04_explicit_grant_hardening", "0003_m04_immutable_security_audit", "0006_c1_career_documents", "0007_c2_career_profile", "0010_c25_private_document_reading", "0011_c2_c25_profile_draft_integration"]) {
+  for (const f of ["0000_m03_shared_schema", "0001_m04_security_boundaries", "0002_m04_explicit_grant_hardening", "0003_m04_immutable_security_audit", "0007_c2_career_profile", "0010_c25_private_document_reading", "0011_c2_c25_profile_draft_integration"]) {
     await db.exec(readFileSync(`drizzle/migrations/${f}.sql`, "utf8"));
   }
   await db.exec(`INSERT INTO auth.users(id) VALUES('${id(1)}'),('${id(2)}');
