@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { passwordStrength, validateRecoveryPassword } from "@/lib/password-recovery";
+import { friendlyError } from "@/routes/auth";
 
 describe("Password recovery validation", () => {
   it("requires at least eight characters", () => {
