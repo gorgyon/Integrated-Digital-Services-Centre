@@ -16,6 +16,14 @@ import {
 } from "@/components/ui/card";
 
 export const Route = createFileRoute("/_authenticated/account")({
+  head: () => ({ meta: [
+    { title: "My applicant account | IDSC" },
+    { name: "description", content: "Your IDSC applicant account, career profile and private documents." },
+    { property: "og:title", content: "My applicant account | IDSC" },
+    { property: "og:description", content: "Manage your Career & Opportunities Portal account." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: AccountPage,
 });
 
@@ -68,11 +76,11 @@ function AccountPage() {
                 {roles.length > 0 ? (
                   roles.map((role) => (
                     <Badge key={role} variant="secondary">
-                      {role.replace(/_/g, " ")}
+                      {role === "customer" ? "Applicant" : role.replace(/_/g, " ")}
                     </Badge>
                   ))
                 ) : (
-                  <Badge variant="secondary">customer</Badge>
+                  <Badge variant="secondary">Applicant</Badge>
                 )}
               </div>
             </div>

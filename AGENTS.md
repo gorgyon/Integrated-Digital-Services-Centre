@@ -11,6 +11,8 @@
 
 ## Platform boundaries
 
+- Password recovery uses the existing Cloud Auth client and a public `/reset-password` route; validate recovery sessions with the provider before changing passwords so ordinary signed-in visits do not become reset flows.
+
 - Keep the TanStack file-based bootstrap and an explicit edge-compatible deployment target; this preserves one deployable codebase inside and outside Lovable.
 - Shared browser-safe platform identity belongs in `src/lib/platform.ts`; future business modules belong in separate `src/modules/<domain>/` directories and must reuse shared services, keeping orders and employment applications separate.
 - Deployment and backup tooling stays outside application imports in `scripts/` and `docs/`; it may use local Node APIs without putting unsupported APIs into the edge runtime.

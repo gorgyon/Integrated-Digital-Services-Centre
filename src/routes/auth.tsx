@@ -27,12 +27,12 @@ export const Route = createFileRoute("/auth")({
       {
         name: "description",
         content:
-          "Customer sign-in and registration for the Integrated Digital Services Centre.",
+          "Applicant sign-in and registration for the IDSC Career & Opportunities Portal.",
       },
       { property: "og:title", content: "Sign in | IDSC" },
       {
         property: "og:description",
-        content: "Customer sign-in and registration for the Integrated Digital Services Centre.",
+        content: "Applicant sign-in and registration for the IDSC Career & Opportunities Portal.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -100,8 +100,29 @@ function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [forgotPassword, setForgotPassword] = useState(false);
 
   const destination = redirect ?? "/account";
+
+  async function onForgotPassword(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (resetError) {
+        setError(resetError.status === 429
+          ? "Too many reset requests. Please wait before trying again."
+          : "Could not send the reset email. Please try again.");
+      } else {
+        setNotice("If an account exists for this email address, you will receive a password-reset link. Please check your inbox and spam folder.");
+      }
+    } catch { setError("Could not send the reset email. Please check your connection and try again."); }
+    finally { setBusy(false); }
+  }
 
   // Already signed in? Go straight to the intended area.
   useEffect(() => {
@@ -176,13 +197,24 @@ function AuthPage() {
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-12">
         <Card>
           <CardHeader>
-            <CardTitle>Sign in</CardTitle>
+            <CardTitle>{forgotPassword ? "Forgot password" : "Sign in"}</CardTitle>
             <CardDescription>
-              Sign in to your account, or create a new one with your email address.
+              {forgotPassword ? "Enter your email address to receive a secure password-reset link." : "Sign in to your account, or create a new one with your email address."}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={tab} onValueChange={setTab}>
+            {forgotPassword ? (
+              <form onSubmit={onForgotPassword} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="reset-email">Email address</Label>
+                  <Input id="reset-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
+                {notice ? <p role="status" className="text-sm text-primary">{notice}</p> : null}
+                {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+                <Button type="submit" disabled={busy}>{busy ? <Loader2 className="size-4 animate-spin" /> : null}{busy ? "Sending…" : "Send reset link"}</Button>
+                <Button type="button" variant="link" disabled={busy} onClick={() => { setForgotPassword(false); setError(null); setNotice(null); }}>Back to sign in</Button>
+              </form>
+            ) : <Tabs value={tab} onValueChange={setTab}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="sign-in">Sign in</TabsTrigger>
                 <TabsTrigger value="register">Create account</TabsTrigger>
@@ -209,6 +241,7 @@ function AuthPage() {
                       onChange={setPassword}
                       autoComplete="current-password"
                     />
+                    <Button type="button" variant="link" className="h-auto self-start p-0 text-sm" disabled={busy} onClick={() => { setForgotPassword(true); setError(null); setNotice(null); }}>Forgot password?</Button>
                   </div>
                   {notice ? (
                     <p role="status" className="text-sm text-primary">
@@ -268,12 +301,12 @@ function AuthPage() {
                     {busy ? "Creating account…" : "Create account"}
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    Registration creates a customer account. Staff accounts are created
+                    Registration creates an applicant account. Staff accounts are created
                     by the centre's administrator and cannot be requested here.
                   </p>
                 </form>
               </TabsContent>
-            </Tabs>
+            </Tabs>}
           </CardContent>
         </Card>
       </main>

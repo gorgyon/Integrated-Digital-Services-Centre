@@ -20,3 +20,8 @@
 
 # Career & Opportunities Portal (plan)
 - [ ] C4–C6 automated opportunity collection — see docs/OPPORTUNITIES_COLLECTION_PLAN.md; blocked on approval and source list.
+
+# Password recovery and Applicant terminology
+- [x] Add email recovery request and public reset page using existing authentication.
+- [x] Change career portal display wording only; preserve backend customer roles and staff/business terminology.
+- [ ] Verify targeted recovery checks and report email readiness; no additional milestone.
