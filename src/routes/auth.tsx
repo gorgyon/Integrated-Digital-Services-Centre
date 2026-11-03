@@ -68,6 +68,7 @@ function AuthPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [forgotPassword, setForgotPassword] = useState(false);
+  const [duplicateEmail, setDuplicateEmail] = useState(false);
 
   const destination = redirect ?? "/account";
 
@@ -85,7 +86,9 @@ function AuthPage() {
           ? "Too many reset requests. Please wait before trying again."
           : "Could not send the reset email. Please try again.");
       } else {
-        setNotice("If an account exists for this email address, you will receive a password-reset link. Please check your inbox and spam folder.");
+        // Neutral by design: the same response whether or not the email is
+        // registered, so recovery never reveals which addresses have accounts.
+        setNotice("If an account exists with this email, password-reset instructions will be sent.");
       }
     } catch { setError("Could not send the reset email. Please check your connection and try again."); }
     finally { setBusy(false); }
