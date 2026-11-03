@@ -33,7 +33,7 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
       const pdfjs = await import('pdfjs-dist');
       const { default: pdfWorker } = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
       pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
-      const task = pdfjs.getDocument({ data: bytes, isEvalSupported: false, useSystemFonts: true, stopAtErrors: true, verbosity: 0 });
+      const task = pdfjs.getDocument({ data: bytes, useSystemFonts: true, stopAtErrors: true, verbosity: 0 });
       try {
         const pdf = await task.promise;
         if (pdf.numPages > 20) throw new ReadingError('limit');

@@ -44,10 +44,10 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
     try {
       const { data: claim, error } = await supabase.rpc('begin_document_reading', { _file: fileId });
       if (error) throw new Error('Could not start reading.');
-      if (!claim || typeof claim !== 'object' || Array.isArray(claim) || claim.started !== true || typeof claim.token !== 'string') {
+      if (!claim || typeof claim !== 'object' || Array.isArray(claim) || claim['started'] !== true || typeof claim['token'] !== 'string') {
         await refresh(); setOpen(true); return;
       }
-      token = claim.token;
+      token = claim['token'];
       await refresh();
       const file = await download({ data: { fileId } });
       const bytes = showSource(file.base64, file.mimeType);

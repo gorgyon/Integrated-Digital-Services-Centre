@@ -54,10 +54,10 @@ export function suggestEntries(pages: { page: number; text: string; ocr: boolean
       const data: Record<string, string> = { [readingFields[kind][0]?.key ?? 'name']: line.slice(0, 200) };
       const year = line.match(/\b(?:19|20)\d{2}\b/g);
       // Only a unique explicitly stated year; dates are never guessed from neighbouring lines.
-      if (year?.length === 1 && kind !== 'skill' && kind !== 'experience') data.year = year[0] ?? '';
+      if (year?.length === 1 && kind !== 'skill' && kind !== 'experience') data['year'] = year[0] ?? '';
       if (grade && kind === 'result') {
-        data.grade = grade[0];
-        data.subject = line.slice(0, grade.index).trim().replace(/[|:–-]+$/, '').trim().slice(0, 200) || line.slice(0, 200);
+        data['grade'] = grade[0];
+        data['subject'] = line.slice(0, grade.index).trim().replace(/[|:–-]+$/, '').trim().slice(0, 200) || line.slice(0, 200);
       }
       output.push({ kind, data, source: line, page: page.page, uncertain: true, status: 'pending' });
       if (output.length === 100) return output;
