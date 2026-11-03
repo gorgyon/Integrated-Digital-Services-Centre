@@ -26,7 +26,8 @@
 - [ ] Lillian recovers access: sign in with the newest password, or use Forgot password (reset emails use the same default sender that delivered the 08:07 confirmation).
 
 # Career & Opportunities Portal (plan)
-- [ ] C4–C6 automated opportunity collection — see docs/OPPORTUNITIES_COLLECTION_PLAN.md; blocked on approval and source list.
+- [x] C3 opportunities database + collector foundation (no sources enabled; schedule not created until a source is approved).
+- [ ] Lillian names permitted sources with evidence of permission; then enable + create daily schedule.
 
 # Password recovery and Applicant terminology
 - [x] Add shared password checklist, strength feedback, visibility controls and creation/reset submission guards.
