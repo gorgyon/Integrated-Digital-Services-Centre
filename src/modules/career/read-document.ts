@@ -11,15 +11,12 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
   async function ocr(canvas: HTMLCanvasElement) {
     if (cancelled) throw new ReadingError('interrupted');
     if (!worker) {
-      const [{ createWorker }, { default: workerPath }, { default: corePath }, { default: languageUrl }] = await Promise.all([
+      const [{ createWorker }, { default: workerPath }, { default: corePath }] = await Promise.all([
         import('tesseract.js'), import('tesseract.js/dist/worker.min.js?url'),
         import('tesseract.js-core/tesseract-core-lstm.wasm.js?url'),
-        import('@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz?url'),
       ]);
-      const language = await fetch(languageUrl);
-      if (!language.ok) throw new ReadingError('interrupted');
-      worker = await createWorker([{ code: 'eng', data: new Uint8Array(await language.arrayBuffer()) }], 1, {
-        workerPath, corePath, cacheMethod: 'none', gzip: true,
+      worker = await createWorker('eng', 1, {
+        workerPath, corePath, langPath: new URL('/ocr', window.location.origin).href, cacheMethod: 'none', gzip: true,
         errorHandler: () => {}, logger: ({ status, progress: fraction }) => {
           if (status === 'recognizing text') progress(`Reading text… ${Math.round(fraction * 100)}%`);
         },
