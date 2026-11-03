@@ -19,7 +19,7 @@ beforeAll(async () => {
     CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT 'authenticated' $$;
     GRANT USAGE ON SCHEMA auth TO anon,authenticated,service_role;
     GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon,authenticated,service_role;`);
-  for (const f of ["0000_m03_shared_schema", "0001_m04_security_boundaries", "0002_m04_explicit_grant_hardening", "0003_m04_immutable_security_audit", "0007_c2_career_profile"]) {
+  for (const f of ["0000_m03_shared_schema", "0001_m04_security_boundaries", "0002_m04_explicit_grant_hardening", "0003_m04_immutable_security_audit", "0007_c2_career_profile", "0011_c2_c25_profile_draft_integration"]) {
     await db.exec(readFileSync(`drizzle/migrations/${f}.sql`, "utf8"));
   }
   await db.exec(`INSERT INTO auth.users(id) VALUES('${id(1)}'),('${id(2)}');
@@ -35,6 +35,11 @@ beforeEach(async () => { await db.exec("RESET ROLE; BEGIN"); });
 afterEach(async () => { await db.exec("ROLLBACK"); });
 
 describe("C2 career profile", () => {
+  it("refuses a duplicate manual entry in the same section", async () => {
+    await asUser(1);
+    await save(null, { name: "Excel" });
+    await expect(save(null, { name: "excel" })).rejects.toThrow(/already/);
+  });
   it("new entries stay drafts until confirmed, and confirmation is audited", async () => {
     await asUser(1);
     const e = (await save(null, { name: "Excel" }, id(201))).rows[0]!.id;
