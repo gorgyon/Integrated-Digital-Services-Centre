@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DocumentReading } from "@/components/DocumentReading";
 
 export const Route = createFileRoute("/_authenticated/documents")({
   head: () => ({ meta: [
@@ -44,10 +45,11 @@ function DocumentsPage() {
     queryKey: ["my-customer-profile", session?.user.id],
     enabled: !!session,
     queryFn: async () => {
+      if (!session) return null;
       const { data } = await supabase
         .from("customer_profiles")
         .select("id")
-        .eq("user_id", session!.user.id)
+        .eq("user_id", session.user.id)
         .maybeSingle();
       return data;
     },
@@ -76,10 +78,11 @@ function DocumentsPage() {
   }
 
   async function upload(file: File) {
+    if (!session) return;
     if (!ALLOWED.includes(file.type)) { toast.error("Only PDF, JPG and PNG files are allowed."); return; }
     if (file.size > MAX_BYTES) { toast.error("Files must be 10 MB or smaller."); return; }
     const ext = file.type === "application/pdf" ? "pdf" : file.type === "image/png" ? "png" : "jpg";
-    const path = `${session!.user.id}/${crypto.randomUUID()}.${ext}`;
+    const path = `${session.user.id}/${crypto.randomUUID()}.${ext}`;
     setBusy(true);
     const { error: upErr } = await supabase.storage
       .from("career-documents")
@@ -138,7 +141,7 @@ function DocumentsPage() {
           </span>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-12">
+      <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
         <Card>
           <CardHeader>
             <CardTitle>My documents</CardTitle>
@@ -181,17 +184,20 @@ function DocumentsPage() {
                 {docs.data && docs.data.length > 0 ? (
                   <ul className="divide-y divide-border rounded-md border border-border">
                     {docs.data.map((d) => (
-                      <li key={d.id} className="flex items-center gap-3 p-3">
+                      <li key={d.id} className="min-w-0 p-3">
+                        <div className="flex items-center gap-3 pb-3">
                         <FileText aria-hidden="true" className="size-5 shrink-0 text-primary" />
-                        <button onClick={() => view(d.id)} className="min-w-0 flex-1 text-left">
-                          <span className="block truncate font-medium underline-offset-4 hover:underline">{d.original_name}</span>
+                        <Button variant="ghost" onClick={() => view(d.id)} className="h-auto min-w-0 flex-1 flex-col items-start whitespace-normal text-left">
+                          <span className="block w-full truncate font-medium underline-offset-4 hover:underline">{d.original_name}</span>
                           <span className="text-xs text-muted-foreground">
                             {new Date(d.created_at).toLocaleDateString("en-ZA")} · {formatSize(d.size_bytes)}
                           </span>
-                        </button>
+                        </Button>
                         <Button variant="ghost" size="icon" aria-label={`Remove ${d.original_name}`} onClick={() => remove(d.id)}>
                           <Trash2 aria-hidden="true" />
                         </Button>
+                        </div>
+                        <DocumentReading fileId={d.id} name={d.original_name} />
                       </li>
                     ))}
                   </ul>

@@ -34,16 +34,18 @@ const KINDS: { kind: Kind; title: string; fields: { key: string; label: string }
     { key: "institution", label: "School or institution" }, { key: "level", label: "Level (e.g. Grade 12, Diploma)" },
     { key: "field", label: "Field of study" }, { key: "year", label: "Year completed" } ] },
   { kind: "qualification", title: "Qualifications", fields: [
-    { key: "title", label: "Qualification" }, { key: "issuer", label: "Issued by" }, { key: "year", label: "Year" } ] },
+    { key: "title", label: "Qualification" }, { key: "issuer", label: "Issued by" }, { key: "field", label: "Field of study" }, { key: "year", label: "Year" } ] },
   { kind: "result", title: "Academic results", fields: [
     { key: "subject", label: "Subject" }, { key: "grade", label: "Mark or grade" }, { key: "year", label: "Year" } ] },
   { kind: "skill", title: "Skills", fields: [
     { key: "name", label: "Skill" }, { key: "level", label: "Level (e.g. Beginner, Advanced)" } ] },
+  { kind: "experience", title: "Employment history and experience", fields: [
+    { key: "role", label: "Role or experience" }, { key: "employer", label: "Employer" }, { key: "period", label: "Dates" } ] },
 ];
 
 const asData = (j: Json | null): Data => (j && typeof j === "object" && !Array.isArray(j) ? (j as Data) : {});
 const summary = (k: Kind, d: Data) =>
-  KINDS.find((x) => x.kind === k)!.fields.map((f) => d[f.key]).filter(Boolean).join(" · ") || "—";
+  KINDS.find((x) => x.kind === k)?.fields.map((f) => d[f.key]).filter(Boolean).join(" · ") || "—";
 
 function ProfilePage() {
   const qc = useQueryClient();
@@ -87,7 +89,7 @@ function ProfilePage() {
             {pending.map((e) => (
               <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
                 <div>
-                  <Badge variant="secondary" className="mr-2">{KINDS.find((k) => k.kind === e.kind)!.title}</Badge>
+                  <Badge variant="secondary" className="mr-2">{KINDS.find((k) => k.kind === e.kind)?.title}</Badge>
                   {e.draft_remove ? <span>Remove: {summary(e.kind, asData(e.confirmed_data))}</span> : (
                     <span>
                       {e.confirmed_data ? "Change to: " : "New: "}{summary(e.kind, asData(e.draft_data))}
@@ -149,7 +151,8 @@ function EntryForm({ kind, entry, docs, onCancel, onSave }: {
   kind: Kind; entry: Entry | null; docs: { id: string; original_name: string }[];
   onCancel: () => void; onSave: (d: Data, file: string) => void;
 }) {
-  const def = KINDS.find((k) => k.kind === kind)!;
+  const def = KINDS.find((k) => k.kind === kind);
+  if (!def) return null;
   const start = asData(entry?.draft_data ?? entry?.confirmed_data ?? null);
   const startFile = entry?.draft_file_id ?? entry?.confirmed_file_id ?? "";
   return (
@@ -161,7 +164,8 @@ function EntryForm({ kind, entry, docs, onCancel, onSave }: {
           const f = new FormData(e.currentTarget);
           const data: Data = {};
           for (const { key } of def.fields) { const v = String(f.get(key) ?? "").trim().slice(0, 200); if (v) data[key] = v; }
-          if (!data[def.fields[0]!.key]) { toast.error(`${def.fields[0]!.label} is required`); return; }
+          const first = def.fields[0];
+          if (!first || !data[first.key]) { toast.error(`${first?.label ?? "Entry"} is required`); return; }
           onSave(data, String(f.get("file") ?? ""));
         }}>
           {def.fields.map((fl) => (

@@ -1,3 +1,9 @@
+# C2.5 — document reading and career profile extraction only
+- [x] Free local PDF text extraction and OCR, private ownership-checked processing records and cached results.
+- [x] Editable source-linked suggestions, individual accept/reject, accepted C2 drafts only; explicit profile confirmation.
+- [x] 16 focused tests pass; authenticated selectable PDF, PNG OCR, scanned PDF fallback and draft review verified. Synthetic documents removed; completion report in docs/C25_DOCUMENT_READING.md.
+- [ ] Lillian reviews C2.5; no subsequent milestone work is authorised.
+
 # M05 — customer and staff sign-in only
 
 - [x] Enable email/password sign-in on Lovable Cloud (no new providers, no paid services).
