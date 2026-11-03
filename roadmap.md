@@ -24,4 +24,5 @@
 # Password recovery and Applicant terminology
 - [x] Add email recovery request and public reset page using existing authentication.
 - [x] Change career portal display wording only; preserve backend customer roles and staff/business terminology.
-- [ ] Verify targeted recovery checks and report email readiness; no additional milestone.
+- [x] Six targeted tests pass; browser checks cover recovery request (simulated email response), registration wording and invalid/expired links; no runtime errors.
+- [x] Existing default authentication emails and preview reset redirects confirmed configured; real inbox delivery and complete emailed-link reset remain unverified.
