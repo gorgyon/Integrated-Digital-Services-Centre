@@ -122,6 +122,7 @@ function AuthPage() {
     e.preventDefault();
     setError(null);
     setNotice(null);
+    setDuplicateEmail(false);
     const validation = validateRecoveryPassword(password, confirm);
     if (validation) {
       setError(validation);
@@ -138,7 +139,22 @@ function AuthPage() {
     });
     setBusy(false);
     if (signUpError) {
-      setError(friendlyError(signUpError.message));
+      // An already-registered email must never look like a successful
+      // registration: show the duplicate-account message with recovery links.
+      const m = signUpError.message.toLowerCase();
+      if (m.includes("user already registered") || m.includes("already been registered")) {
+        setDuplicateEmail(true);
+      } else {
+        setError(friendlyError(signUpError.message));
+      }
+      return;
+    }
+    // Obfuscated duplicate: for an existing confirmed address the provider
+    // returns a user object with no identities instead of an error. Treat it
+    // as a duplicate so no "check your email" notice is shown for an account
+    // that will never send one.
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      setDuplicateEmail(true);
       return;
     }
     if (!data.session) {
