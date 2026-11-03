@@ -22,6 +22,11 @@
 - [ ] C4–C6 automated opportunity collection — see docs/OPPORTUNITIES_COLLECTION_PLAN.md; blocked on approval and source list.
 
 # Password recovery and Applicant terminology
+- [x] Add shared password checklist, strength feedback, visibility controls and creation/reset submission guards.
+- [x] Update operational IDSC page branding; retain formal business identity.
+- [x] Eight focused password-rule tests pass; both forms checked in browser (reset uses simulated recovery session, no real account changed); build checks clean.
+- [ ] Provider-level password policy — owner must set minimum length 8 and required uppercase/lowercase/number/symbol in More → Users → Auth settings → Email; no agent tool exposes these settings.
+- [ ] Branded authentication emails — blocked on an owner-verified sender domain; none configured. Default authentication emails preserved; no additional service activated.
 - [x] Add email recovery request and public reset page using existing authentication.
 - [x] Change career portal display wording only; preserve backend customer roles and staff/business terminology.
 - [x] Six targeted tests pass; browser checks cover recovery request (simulated email response), registration wording and invalid/expired links; no runtime errors.

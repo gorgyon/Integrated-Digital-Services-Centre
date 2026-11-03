@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Building2, Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
+import { Building2, Loader2, ShieldCheck } from "lucide-react";
+import { PasswordInput } from "@/components/PasswordFields";
 
 import { supabase } from "@/integrations/supabase/client";
 import { platform } from "@/lib/platform";
@@ -24,12 +25,12 @@ export const Route = createFileRoute("/staff/sign-in")({
       {
         name: "description",
         content:
-          "Staff sign-in for the Integrated Digital Services Centre.",
+          "Staff sign-in for IDSC.",
       },
       { property: "og:title", content: "Staff sign in | IDSC" },
       {
         property: "og:description",
-        content: "Staff sign-in for the Integrated Digital Services Centre.",
+        content: "Staff sign-in for IDSC.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -42,7 +43,6 @@ function StaffSignInPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [show, setShow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -118,25 +118,7 @@ function StaffSignInPage() {
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="staff-password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="staff-password"
-                    type={show ? "text" : "password"}
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShow((s) => !s)}
-                    aria-label={show ? "Hide password" : "Show password"}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
+                <PasswordInput id="staff-password" autoComplete="current-password" value={password} onChange={setPassword} />
               </div>
               {error ? (
                 <p role="alert" className="text-sm text-destructive">

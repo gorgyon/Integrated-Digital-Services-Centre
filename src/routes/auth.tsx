@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Building2, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Building2, Loader2 } from "lucide-react";
+import { PasswordInput, PasswordChecklist } from "@/components/PasswordFields";
+import { validateRecoveryPassword } from "@/lib/password-recovery";
 
 import { supabase } from "@/integrations/supabase/client";
 import { platform } from "@/lib/platform";
@@ -53,41 +55,6 @@ function friendlyError(message: string): string {
     return "This email address cannot be used. Please check it and try again.";
   if (m.includes("password")) return "Password must be at least 8 characters.";
   return "Something went wrong. Please try again.";
-}
-
-function PasswordInput({
-  id,
-  value,
-  onChange,
-  autoComplete,
-}: {
-  id: string;
-  value: string;
-  onChange: (value: string) => void;
-  autoComplete: string;
-}) {
-  const [show, setShow] = useState(false);
-  return (
-    <div className="relative">
-      <Input
-        id={id}
-        type={show ? "text" : "password"}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        autoComplete={autoComplete}
-        required
-        className="pr-10"
-      />
-      <button
-        type="button"
-        onClick={() => setShow((s) => !s)}
-        aria-label={show ? "Hide password" : "Show password"}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-      >
-        {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-      </button>
-    </div>
-  );
 }
 
 function AuthPage() {
@@ -152,12 +119,9 @@ function AuthPage() {
     e.preventDefault();
     setError(null);
     setNotice(null);
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-    if (password !== confirm) {
-      setError("Passwords do not match.");
+    const validation = validateRecoveryPassword(password, confirm);
+    if (validation) {
+      setError(validation);
       return;
     }
     setBusy(true);
@@ -277,6 +241,7 @@ function AuthPage() {
                     <Label htmlFor="register-password">Password</Label>
                     <PasswordInput
                       id="register-password"
+                      descriptionId="register-password-checklist"
                       value={password}
                       onChange={setPassword}
                       autoComplete="new-password"
@@ -286,17 +251,19 @@ function AuthPage() {
                     <Label htmlFor="register-confirm">Confirm password</Label>
                     <PasswordInput
                       id="register-confirm"
+                      descriptionId="register-password-checklist"
                       value={confirm}
                       onChange={setConfirm}
                       autoComplete="new-password"
                     />
                   </div>
+                  <PasswordChecklist id="register-password-checklist" password={password} confirmation={confirm} />
                   {error ? (
                     <p role="alert" className="text-sm text-destructive">
                       {error}
                     </p>
                   ) : null}
-                  <Button type="submit" disabled={busy}>
+                  <Button type="submit" disabled={busy || validateRecoveryPassword(password, confirm) !== null}>
                     {busy ? <Loader2 className="size-4 animate-spin" /> : null}
                     {busy ? "Creating account…" : "Create account"}
                   </Button>

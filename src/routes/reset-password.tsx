@@ -5,9 +5,9 @@ import { Building2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { platform } from "@/lib/platform";
 import { validateRecoveryPassword } from "@/lib/password-recovery";
+import { PasswordInput, PasswordChecklist } from "@/components/PasswordFields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/reset-password")({
@@ -109,11 +109,11 @@ function ResetPasswordPage() {
             {state === "success" ? <p role="status" className="text-sm text-primary">Your password has been reset. You can now sign in with your new password.</p> : null}
             {state === "valid" ? (
               <form onSubmit={onSubmit} className="flex flex-col gap-4">
-                <div className="flex flex-col gap-2"><Label htmlFor="new-password">New password</Label><Input id="new-password" type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-                <p className="text-sm text-muted-foreground">Use at least 8 characters.</p>
-                <div className="flex flex-col gap-2"><Label htmlFor="confirm-password">Confirm new password</Label><Input id="confirm-password" type="password" autoComplete="new-password" required value={confirmation} onChange={(e) => setConfirmation(e.target.value)} /></div>
+                <div className="flex flex-col gap-2"><Label htmlFor="new-password">New password</Label><PasswordInput id="new-password" descriptionId="reset-password-checklist" autoComplete="new-password" value={password} onChange={setPassword} /></div>
+                <div className="flex flex-col gap-2"><Label htmlFor="confirm-password">Confirm new password</Label><PasswordInput id="confirm-password" descriptionId="reset-password-checklist" autoComplete="new-password" value={confirmation} onChange={setConfirmation} /></div>
+                <PasswordChecklist id="reset-password-checklist" password={password} confirmation={confirmation} />
                 {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-                <Button type="submit" disabled={busy}>{busy ? <Loader2 className="size-4 animate-spin" /> : null}{busy ? "Resetting password…" : "Reset password"}</Button>
+                <Button type="submit" disabled={busy || validateRecoveryPassword(password, confirmation) !== null}>{busy ? <Loader2 className="size-4 animate-spin" /> : null}{busy ? "Resetting password…" : "Reset password"}</Button>
               </form>
             ) : null}
             <Link to="/auth" className="text-sm font-medium text-primary underline-offset-4 hover:underline">Back to sign in</Link>

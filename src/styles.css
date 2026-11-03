@@ -41,6 +41,8 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-password-fair: var(--password-fair);
+  --color-password-good: var(--password-good);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
@@ -62,6 +64,8 @@
 }
 
 :root {
+  --password-fair: oklch(0.62 0.14 75);
+  --password-good: oklch(0.55 0.12 220);
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.23 0.008 160);
@@ -98,6 +102,8 @@
 }
 
 .dark {
+  --password-fair: oklch(0.78 0.14 75);
+  --password-good: oklch(0.75 0.12 220);
   --background: oklch(0.129 0.042 264.695);
   --foreground: oklch(0.984 0.003 247.858);
   --card: oklch(0.208 0.042 265.755);
