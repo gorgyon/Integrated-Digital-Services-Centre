@@ -106,7 +106,7 @@ function ProfilePage() {
             const { error } = await supabase.rpc("save_career_draft", {
               _entry: editing.entry?.id ?? (null as unknown as string), _kind: editing.kind, _data: data, _file: (file || null) as unknown as string,
             });
-            if (error) return toast.error(error.message);
+            if (error) { toast.error(error.message); return; }
             toast.success("Saved as draft");
             setEditing(null); refresh();
           }} />
@@ -157,7 +157,7 @@ function EntryForm({ kind, entry, docs, onCancel, onSave }: {
           const f = new FormData(e.currentTarget);
           const data: Data = {};
           for (const { key } of def.fields) { const v = String(f.get(key) ?? "").trim().slice(0, 200); if (v) data[key] = v; }
-          if (!data[def.fields[0]!.key]) return toast.error(`${def.fields[0]!.label} is required`);
+          if (!data[def.fields[0]!.key]) { toast.error(`${def.fields[0]!.label} is required`); return; }
           onSave(data, String(f.get("file") ?? ""));
         }}>
           {def.fields.map((fl) => (
