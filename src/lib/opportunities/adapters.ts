@@ -6,7 +6,7 @@ export interface SourceConfig {
   name: string;
   kind: "rss" | "api";
   endpoint_url: string;
-  cache_etag?: string | null;
+  cache_etag?: string | null | undefined;
   cache_marker?: string | null;
 }
 
@@ -16,7 +16,7 @@ export interface FetchResult {
   complete: boolean;
   /** True when the cached copy is still current; nothing to process. */
   notModified?: boolean;
-  etag?: string | null;
+  etag?: string | null | undefined;
   marker?: string | null;
 }
 
@@ -91,15 +91,15 @@ export function himalayasEligibility(restrictions: string[]): SouthAfricaEligibi
 }
 
 export function mapHimalayasJob(j: Record<string, unknown>): RawItem {
-  const restrictions = Array.isArray(j.locationRestrictions) ? j.locationRestrictions.filter((x): x is string => typeof x === "string") : [];
-  const type = str(j.employmentType);
+  const restrictions = Array.isArray(j["locationRestrictions"]) ? j["locationRestrictions"].filter((x): x is string => typeof x === "string") : [];
+  const type = str(j["employmentType"]);
   return {
-    externalId: str(j.guid),
-    title: str(j.title),
-    description: str(j.description) ?? str(j.excerpt),
-    link: str(j.guid), // Himalayas listing page
-    applicationUrl: str(j.applicationLink), // kept unchanged (Himalayas API terms)
-    provider: str(j.companyName),
+    externalId: str(j["guid"]),
+    title: str(j["title"]),
+    description: str(j["description"]) ?? str(j["excerpt"]),
+    link: str(j["guid"]), // Himalayas listing page
+    applicationUrl: str(j["applicationLink"]), // kept unchanged (Himalayas API terms)
+    provider: str(j["companyName"]),
     category: type && /intern/i.test(type) ? "internship" : "job",
     employmentType: type,
     location: restrictions.length ? `Remote – ${restrictions.join(", ")} only` : "Remote – location restrictions not stated by source",
@@ -107,8 +107,8 @@ export function mapHimalayasJob(j: Record<string, unknown>): RawItem {
     remote: true,
     southAfricaEligibility: himalayasEligibility(restrictions),
     scope: "international",
-    salary: salaryText(j.minSalary, j.maxSalary, j.currency, j.salaryPeriod),
-    closesAt: unixToIso(j.expiryDate), // latest listing date; Himalayas notes jobs can close earlier
+    salary: salaryText(j["minSalary"], j["maxSalary"], j["currency"], j["salaryPeriod"]),
+    closesAt: unixToIso(j["expiryDate"]), // latest listing date; Himalayas notes jobs can close earlier
     preserveLinks: true,
   };
 }
@@ -142,15 +142,15 @@ export function greenLevelEligibility(country: string | null, remote: boolean): 
 }
 
 export function mapGreenLevelJob(j: Record<string, unknown>): RawItem {
-  const country = str(j.country);
-  const remote = j.remote === "remote";
-  const type = str(j.type);
-  const place = [str(j.location), country && country !== str(j.location) ? country : null].filter(Boolean).join(", ");
+  const country = str(j["country"]);
+  const remote = j["remote"] === "remote";
+  const type = str(j["type"]);
+  const place = [str(j["location"]), country && country !== str(j["location"]) ? country : null].filter(Boolean).join(", ");
   return {
-    externalId: str(j.id),
-    title: str(j.title),
-    link: str(j.url), // canonical Green Level page; full job pages are not republished
-    provider: str(j.company),
+    externalId: str(j["id"]),
+    title: str(j["title"]),
+    link: str(j["url"]), // canonical Green Level page; full job pages are not republished
+    provider: str(j["company"]),
     category: type === "internship" ? "internship" : "job",
     employmentType: type,
     location: place || null,
@@ -158,9 +158,9 @@ export function mapGreenLevelJob(j: Record<string, unknown>): RawItem {
     locationRestrictions: country && !/^remote$/i.test(country) ? [country] : null,
     southAfricaEligibility: greenLevelEligibility(country, remote),
     scope: country && isSA(country) ? "south_africa" : "international_specialist",
-    salary: salaryText(j.salary_min, j.salary_max, j.salary_currency, j.salary_period),
-    opensAt: str(j.date_posted),
-    closesAt: str(j.date_expires),
+    salary: salaryText(j["salary_min"], j["salary_max"], j["salary_currency"], j["salary_period"]),
+    opensAt: str(j["date_posted"]),
+    closesAt: str(j["date_expires"]),
     preserveLinks: true,
   };
 }
@@ -169,7 +169,7 @@ export const greenLevelAdapter: SourceAdapter = {
   async fetchItems(source, fetcher = fetch) {
     // One cached, conditional request per run (published limit: max 1 request/second; cache the data).
     const res = await request(source.endpoint_url, fetcher, source.cache_etag ? { "If-None-Match": source.cache_etag } : {});
-    if (res.status === 304) return { items: [], complete: false, notModified: true, etag: source.cache_etag };
+    if (res.status === 304) return { items: [], complete: false, notModified: true, etag: source.cache_etag ?? null };
     const body = (await res.json()) as { generated?: string; jobs?: Record<string, unknown>[] };
     const etag = res.headers.get("etag");
     if (body.generated && body.generated === source.cache_marker) {
