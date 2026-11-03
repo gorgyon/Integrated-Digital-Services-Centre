@@ -79,6 +79,9 @@ function AccountPage() {
             <Link to="/documents" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
               My documents
             </Link>
+            <Link to="/profile" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+              My career profile
+            </Link>
             <p className="text-sm text-muted-foreground">
               Online services are still in preparation. When they open, your orders,
               applications and documents will appear here.
