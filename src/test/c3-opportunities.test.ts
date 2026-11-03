@@ -38,7 +38,7 @@ describe("C3 database rules", () => {
       CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT 'authenticated' $$;
       GRANT USAGE ON SCHEMA auth TO anon,authenticated,service_role;
       GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon,authenticated,service_role;`);
-    for (const f of ["0000_m03_shared_schema", "0001_m04_security_boundaries", "0002_m04_explicit_grant_hardening", "0003_m04_immutable_security_audit", "0008_c3_opportunities"]) {
+    for (const f of ["0000_m03_shared_schema", "0001_m04_security_boundaries", "0002_m04_explicit_grant_hardening", "0003_m04_immutable_security_audit", "0008_c3_opportunities", "0009_c3_source_attribution_and_cache"]) {
       await db.exec(readFileSync(`drizzle/migrations/${f}.sql`, "utf8"));
     }
     await db.exec(`INSERT INTO public.opportunities(title,source_url,dedupe_key,content_hash,closes_at) VALUES
@@ -57,5 +57,41 @@ describe("C3 database rules", () => {
     await expect(db.exec(`INSERT INTO public.opportunities(title,source_url,dedupe_key,content_hash) VALUES('Manual','https://m.example','k3','h')`))
       .rejects.toThrow(/permission denied/);
     await db.exec("RESET ROLE");
+  });
+});
+
+import { greenLevelAdapter, mapGreenLevelJob, mapHimalayasJob } from "@/lib/opportunities/adapters";
+
+describe("C3 Himalayas and Green Level mapping", () => {
+  const apply = "https://himalayas.app/companies/acme/jobs/dev?utm_source=api";
+  it("Himalayas keeps applicationLink unchanged and links to the Himalayas listing", () => {
+    const n = normalise(mapHimalayasJob({ guid: "https://himalayas.app/companies/acme/jobs/dev", title: "Dev", companyName: "Acme", applicationLink: apply, locationRestrictions: ["United States"], expiryDate: 1798892122 }), "job")!;
+    expect(n.application_url).toBe(apply);
+    expect(n.source_url).toBe("https://himalayas.app/companies/acme/jobs/dev");
+    expect(n.south_africa_eligibility).toBe("restricted_elsewhere");
+    expect(n.opportunity_scope).toBe("international");
+  });
+  it("Himalayas remote job with no country list is not marked open to South Africa; missing salary stays empty", () => {
+    const n = normalise(mapHimalayasJob({ guid: "https://himalayas.app/j/1", title: "Ops", locationRestrictions: [] }), "job")!;
+    expect(n.south_africa_eligibility).toBe("not_stated");
+    expect(n.salary_text).toBeNull();
+    expect(n.closes_at).toBeNull();
+    expect(normalise(mapHimalayasJob({ guid: "https://himalayas.app/j/2", title: "X", locationRestrictions: ["South Africa"] }), "job")!.south_africa_eligibility).toBe("open_to_south_africa");
+  });
+  it("Green Level links to its canonical url and is labelled specialist", () => {
+    const url = "https://green-level.com/jobs/solar-tech-acme/";
+    const n = normalise(mapGreenLevelJob({ id: "solar-tech-acme", title: "Solar Tech", company: "Acme", country: "Germany", date_expires: "2026-12-19", url }), "job")!;
+    expect(n.source_url).toBe(url);
+    expect(n.application_url).toBeNull();
+    expect(n.opportunity_scope).toBe("international_specialist");
+    expect(n.south_africa_eligibility).toBe("restricted_elsewhere");
+    expect(n.closes_at).toBe("2026-12-19");
+  });
+  it("Green Level sends the cached ETag and skips processing when unchanged", async () => {
+    let sent: string | null = null;
+    const f = (async (_u: string, init: RequestInit) => { sent = new Headers(init.headers).get("If-None-Match"); return new Response(null, { status: 304 }); }) as unknown as typeof fetch;
+    const r = await greenLevelAdapter.fetchItems({ id: "g", name: "Green Level", kind: "api", endpoint_url: "https://green-level.com/jobs.json", cache_etag: '"abc"' }, f);
+    expect(sent).toBe('"abc"');
+    expect(r.notModified).toBe(true);
   });
 });

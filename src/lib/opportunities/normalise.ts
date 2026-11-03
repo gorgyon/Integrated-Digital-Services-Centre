@@ -16,7 +16,18 @@ export interface RawItem {
   requirements?: string | null;
   opensAt?: string | null;
   closesAt?: string | null;
+  salary?: string | null;
+  employmentType?: string | null;
+  remote?: boolean | null;
+  locationRestrictions?: string[] | null;
+  southAfricaEligibility?: SouthAfricaEligibility;
+  scope?: OpportunityScope | null;
+  /** Keep source and apply links exactly as supplied (required by some source terms). */
+  preserveLinks?: boolean;
 }
+
+export type SouthAfricaEligibility = "in_south_africa" | "open_to_south_africa" | "restricted_elsewhere" | "not_stated";
+export type OpportunityScope = "south_africa" | "international" | "international_specialist";
 
 export interface NormalisedOpportunity {
   external_id: string;
@@ -31,6 +42,12 @@ export interface NormalisedOpportunity {
   closes_at: string | null;
   source_url: string;
   application_url: string | null;
+  salary_text: string | null;
+  employment_type: string | null;
+  remote: boolean | null;
+  location_restrictions: string[] | null;
+  south_africa_eligibility: SouthAfricaEligibility;
+  opportunity_scope: OpportunityScope | null;
   dedupe_key: string;
   content_hash: string;
 }
@@ -50,6 +67,17 @@ export function normaliseUrl(url: string): string | null {
     for (const k of [...u.searchParams.keys()]) if (/^utm_|^fbclid$|^gclid$/i.test(k)) u.searchParams.delete(k);
     u.hostname = u.hostname.toLowerCase().replace(/^www\./, "");
     return u.toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+
+/** Validates an http(s) URL but returns it exactly as supplied. */
+export function exactUrl(url?: string | null): string | null {
+  if (!url) return null;
+  try {
+    const p = new URL(url.trim()).protocol;
+    return p === "https:" || p === "http:" ? url.trim() : null;
   } catch {
     return null;
   }
@@ -85,7 +113,7 @@ function hash(s: string): string {
 
 export function normalise(raw: RawItem, fallback: OpportunityCategory | null): NormalisedOpportunity | null {
   const title = clean(raw.title);
-  const sourceUrl = raw.link ? normaliseUrl(raw.link) : null;
+  const sourceUrl = raw.preserveLinks ? exactUrl(raw.link) : raw.link ? normaliseUrl(raw.link) : null;
   if (!title || !sourceUrl) return null; // never invent a title or link
   const provider = clean(raw.provider);
   const closes = toIsoDate(raw.closesAt);
@@ -101,7 +129,13 @@ export function normalise(raw: RawItem, fallback: OpportunityCategory | null): N
     opens_at: toIsoDate(raw.opensAt),
     closes_at: closes,
     source_url: sourceUrl,
-    application_url: raw.applicationUrl ? normaliseUrl(raw.applicationUrl) : null,
+    application_url: raw.preserveLinks ? exactUrl(raw.applicationUrl) : raw.applicationUrl ? normaliseUrl(raw.applicationUrl) : null,
+    salary_text: clean(raw.salary),
+    employment_type: clean(raw.employmentType),
+    remote: raw.remote ?? null,
+    location_restrictions: raw.locationRestrictions?.length ? raw.locationRestrictions : null,
+    south_africa_eligibility: raw.southAfricaEligibility ?? "not_stated",
+    opportunity_scope: raw.scope ?? null,
     dedupe_key: crossSourceKey(title, provider, closes),
   };
   return { ...out, content_hash: hash(JSON.stringify({ ...out, external_id: undefined })) };
