@@ -43,14 +43,14 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-function friendlyError(message: string): string {
+export function friendlyError(message: string): string {
   const m = message.toLowerCase();
   if (m.includes("invalid login credentials"))
     return "Incorrect email or password. Please try again.";
   if (m.includes("email not confirmed"))
     return "Please confirm your email address first — check your inbox for the confirmation link.";
-  if (m.includes("user already registered"))
-    return "An account with this email already exists. Try signing in instead.";
+  if (m.includes("user already registered") || m.includes("already been registered"))
+    return "An account with this email already exists. Please sign in or reset your password.";
   if (m.includes("not allowed"))
     return "This email address cannot be used. Please check it and try again.";
   if (m.includes("password")) return "Password must be at least 8 characters.";
@@ -68,6 +68,7 @@ function AuthPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [forgotPassword, setForgotPassword] = useState(false);
+  const [duplicateEmail, setDuplicateEmail] = useState(false);
 
   const destination = redirect ?? "/account";
 
@@ -85,7 +86,9 @@ function AuthPage() {
           ? "Too many reset requests. Please wait before trying again."
           : "Could not send the reset email. Please try again.");
       } else {
-        setNotice("If an account exists for this email address, you will receive a password-reset link. Please check your inbox and spam folder.");
+        // Neutral by design: the same response whether or not the email is
+        // registered, so recovery never reveals which addresses have accounts.
+        setNotice("If an account exists with this email, password-reset instructions will be sent.");
       }
     } catch { setError("Could not send the reset email. Please check your connection and try again."); }
     finally { setBusy(false); }
@@ -102,6 +105,7 @@ function AuthPage() {
     e.preventDefault();
     setError(null);
     setNotice(null);
+    setDuplicateEmail(false);
     setBusy(true);
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -119,6 +123,7 @@ function AuthPage() {
     e.preventDefault();
     setError(null);
     setNotice(null);
+    setDuplicateEmail(false);
     const validation = validateRecoveryPassword(password, confirm);
     if (validation) {
       setError(validation);
@@ -135,7 +140,22 @@ function AuthPage() {
     });
     setBusy(false);
     if (signUpError) {
-      setError(friendlyError(signUpError.message));
+      // An already-registered email must never look like a successful
+      // registration: show the duplicate-account message with recovery links.
+      const m = signUpError.message.toLowerCase();
+      if (m.includes("user already registered") || m.includes("already been registered")) {
+        setDuplicateEmail(true);
+      } else {
+        setError(friendlyError(signUpError.message));
+      }
+      return;
+    }
+    // Obfuscated duplicate: for an existing confirmed address the provider
+    // returns a user object with no identities instead of an error. Treat it
+    // as a duplicate so no "check your email" notice is shown for an account
+    // that will never send one.
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      setDuplicateEmail(true);
       return;
     }
     if (!data.session) {
@@ -258,7 +278,29 @@ function AuthPage() {
                     />
                   </div>
                   <PasswordChecklist id="register-password-checklist" password={password} confirmation={confirm} />
-                  {error ? (
+                  {duplicateEmail ? (
+                    <div role="alert" className="flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+                      <p className="text-destructive">
+                        An account with this email already exists. Please sign in or reset your password.
+                      </p>
+                      <div className="flex gap-4">
+                        <button
+                          type="button"
+                          className="font-medium text-primary underline-offset-4 hover:underline"
+                          onClick={() => { setDuplicateEmail(false); setError(null); setTab("sign-in"); }}
+                        >
+                          Sign in
+                        </button>
+                        <button
+                          type="button"
+                          className="font-medium text-primary underline-offset-4 hover:underline"
+                          onClick={() => { setDuplicateEmail(false); setError(null); setForgotPassword(true); }}
+                        >
+                          Reset your password
+                        </button>
+                      </div>
+                    </div>
+                  ) : error ? (
                     <p role="alert" className="text-sm text-destructive">
                       {error}
                     </p>

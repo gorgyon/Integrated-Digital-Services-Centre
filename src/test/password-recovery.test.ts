@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { passwordStrength, validateRecoveryPassword } from "@/lib/password-recovery";
+import { friendlyError } from "@/routes/auth";
 
 describe("Password recovery validation", () => {
   it("requires at least eight characters", () => {
@@ -25,5 +26,21 @@ describe("Password recovery validation", () => {
     expect(passwordStrength("Ab1").label).toBe("Fair");
     expect(passwordStrength("Ab1!").label).toBe("Good");
     expect(passwordStrength("Ab1!xxxx").label).toBe("Strong");
+  });
+});
+
+describe("Duplicate registration handling", () => {
+  it("rejects already-registered emails with sign-in and reset guidance", () => {
+    expect(friendlyError("User already registered")).toBe(
+      "An account with this email already exists. Please sign in or reset your password.",
+    );
+    expect(friendlyError("A user with this email address has already been registered")).toBe(
+      "An account with this email already exists. Please sign in or reset your password.",
+    );
+  });
+  it("keeps other provider errors generic", () => {
+    expect(friendlyError("Invalid login credentials")).toBe(
+      "Incorrect email or password. Please try again.",
+    );
   });
 });

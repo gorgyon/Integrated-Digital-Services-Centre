@@ -18,6 +18,13 @@
 - [ ] Lillian reviews M06 and confirms GitHub sync.
 - [ ] M07 and later — blocked pending explicit written approval.
 
+# Urgent — duplicate registration and account recovery
+- [x] Investigated: single confirmed account exists (lillianmmashaba.lm@gmail.com, confirmed 08:07, signed in 10:47); no duplicate account was created; profile, documents and roles intact.
+- [x] Root cause: re-registering a confirmed email was treated as a fresh signup ("check your email" notice, no email sent); original password no longer matched after the second registration.
+- [x] Fix: duplicate emails now rejected with "An account with this email already exists. Please sign in or reset your password." plus Sign in / Reset your password links; obfuscated duplicates (empty identities) detected; neutral recovery wording "If an account exists with this email, password-reset instructions will be sent."
+- [x] Tests: 10/10 in password-recovery suite; build clean.
+- [ ] Lillian recovers access: sign in with the newest password, or use Forgot password (reset emails use the same default sender that delivered the 08:07 confirmation).
+
 # Career & Opportunities Portal (plan)
 - [ ] C4–C6 automated opportunity collection — see docs/OPPORTUNITIES_COLLECTION_PLAN.md; blocked on approval and source list.
 
