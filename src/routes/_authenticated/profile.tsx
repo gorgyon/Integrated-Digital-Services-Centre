@@ -93,7 +93,7 @@ function ProfilePage() {
                   {e.draft_remove ? <span>Remove: {summary(e.kind, asData(e.confirmed_data))}</span> : (
                     <span>
                       {e.confirmed_data ? "Change to: " : "New: "}{summary(e.kind, asData(e.draft_data))}
-                      {docName(e.draft_file_id) ? ` (document: ${docName(e.draft_file_id)})` : ""}
+                      {docName(e.draft_file_id) ? ` (document: ${docName(e.draft_file_id)}${e.draft_source_page ? `, page ${e.draft_source_page}` : ""})` : ""}
                     </span>
                   )}
                 </div>
@@ -105,40 +105,49 @@ function ProfilePage() {
         </Card>
       ) : null}
 
-      {editing ? (
-        <EntryForm key={editing.entry?.id ?? editing.kind} {...editing} docs={docs.data ?? []}
-          onCancel={() => setEditing(null)}
-          onSave={async (data, file) => {
-            const { error } = await supabase.rpc("save_career_draft", {
-              _entry: editing.entry?.id ?? (null as unknown as string), _kind: editing.kind, _data: data, _file: (file || null) as unknown as string,
-            });
-            if (error) { toast.error(error.message); return; }
-            toast.success("Saved as draft");
-            setEditing(null); refresh();
-          }} />
-      ) : null}
-
       {KINDS.map(({ kind, title }) => {
-        const list = (entries.data ?? []).filter((e) => e.kind === kind && e.confirmed_data);
+        const list = (entries.data ?? []).filter((e) => e.kind === kind);
+        const formHere = editing?.kind === kind;
         return (
           <Card key={kind}>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
               <CardTitle className="text-lg">{title}</CardTitle>
-              <Button size="sm" variant="outline" onClick={() => setEditing({ kind, entry: null })}>Add</Button>
+              <Button size="sm" variant="outline" disabled={formHere && !editing?.entry} onClick={() => setEditing({ kind, entry: null })}>Add</Button>
             </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              {list.length === 0 ? <p className="text-sm text-muted-foreground">No confirmed entries yet.</p> : list.map((e) => (
-                <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <span>
-                    {summary(kind, asData(e.confirmed_data))}
-                    {docName(e.confirmed_file_id) ? <span className="text-muted-foreground"> · {docName(e.confirmed_file_id)}</span> : null}
-                  </span>
-                  <span className="flex gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => setEditing({ kind, entry: e })}>Edit</Button>
-                    <Button size="sm" variant="ghost" onClick={() => run(supabase.rpc("request_career_entry_removal", { _entry: e.id }), "Removal added for review")}>Remove</Button>
-                  </span>
-                </div>
-              ))}
+            <CardContent className="flex flex-col gap-3">
+              {formHere ? (
+                <EntryForm key={editing.entry?.id ?? `new-${kind}`} {...editing} docs={docs.data ?? []}
+                  onCancel={() => setEditing(null)}
+                  onSave={async (data, file) => {
+                    const { error } = await supabase.rpc("save_career_draft", {
+                      _entry: editing.entry?.id ?? (null as unknown as string), _kind: kind, _data: data, _file: (file || null) as unknown as string,
+                    });
+                    if (error) { toast.error(error.message); return; }
+                    toast.success("Saved as draft");
+                    setEditing(null); refresh();
+                  }} />
+              ) : null}
+              {list.length === 0 && !formHere ? <p className="text-sm text-muted-foreground">No entries yet.</p> : list.map((e) => {
+                const isDraft = !!e.draft_data || e.draft_remove;
+                const shown = asData(e.draft_data ?? e.confirmed_data);
+                const fileId = e.draft_data ? e.draft_file_id : e.confirmed_file_id;
+                const page = e.draft_data ? e.draft_source_page : e.confirmed_source_page;
+                return (
+                  <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <span className="min-w-0 break-words">
+                      {isDraft ? <Badge variant="secondary" className="mr-2">{e.draft_remove ? "Removal draft" : "Draft"}</Badge> : null}
+                      {summary(kind, shown)}
+                      {docName(fileId) ? <span className="text-muted-foreground"> · {docName(fileId)}{page ? `, page ${page}` : ""}</span> : null}
+                    </span>
+                    <span className="flex gap-1">
+                      {!e.draft_remove ? <Button size="sm" variant="ghost" onClick={() => setEditing({ kind, entry: e })}>Edit</Button> : null}
+                      {isDraft
+                        ? <Button size="sm" variant="ghost" onClick={() => run(supabase.rpc("discard_career_draft", { _entry: e.id }), e.confirmed_data ? "Draft discarded" : "Draft removed")}>{e.confirmed_data ? "Discard draft" : "Remove"}</Button>
+                        : <Button size="sm" variant="ghost" onClick={() => run(supabase.rpc("request_career_entry_removal", { _entry: e.id }), "Removal added for review")}>Remove</Button>}
+                    </span>
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
         );
@@ -156,9 +165,9 @@ function EntryForm({ kind, entry, docs, onCancel, onSave }: {
   const start = asData(entry?.draft_data ?? entry?.confirmed_data ?? null);
   const startFile = entry?.draft_file_id ?? entry?.confirmed_file_id ?? "";
   return (
-    <Card>
-      <CardHeader><CardTitle className="text-lg">{entry ? "Edit" : "Add"} — {def.title}</CardTitle></CardHeader>
-      <CardContent>
+    <div className="rounded-md border border-primary p-4">
+      <h3 className="mb-3 font-medium">{entry ? "Edit" : "Add"} — {def.title}</h3>
+      <div>
         <form className="flex flex-col gap-3" onSubmit={(e) => {
           e.preventDefault();
           const f = new FormData(e.currentTarget);
@@ -170,13 +179,13 @@ function EntryForm({ kind, entry, docs, onCancel, onSave }: {
         }}>
           {def.fields.map((fl) => (
             <div key={fl.key} className="flex flex-col gap-1">
-              <Label htmlFor={fl.key}>{fl.label}</Label>
-              <Input id={fl.key} name={fl.key} defaultValue={start[fl.key] ?? ""} maxLength={200} />
+              <Label htmlFor={`${kind}-${fl.key}`}>{fl.label}</Label>
+              <Input id={`${kind}-${fl.key}`} name={fl.key} defaultValue={start[fl.key] ?? ""} maxLength={200} />
             </div>
           ))}
           <div className="flex flex-col gap-1">
-            <Label htmlFor="file">Supporting document (optional)</Label>
-            <select id="file" name="file" defaultValue={startFile} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
+            <Label htmlFor={`${kind}-file`}>Supporting document (optional)</Label>
+            <select id={`${kind}-file`} name="file" defaultValue={startFile} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
               <option value="">None</option>
               {docs.map((d) => <option key={d.id} value={d.id}>{d.original_name}</option>)}
             </select>
@@ -186,8 +195,8 @@ function EntryForm({ kind, entry, docs, onCancel, onSave }: {
             <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
           </div>
         </form>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 

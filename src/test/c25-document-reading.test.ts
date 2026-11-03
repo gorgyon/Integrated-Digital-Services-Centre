@@ -24,7 +24,7 @@ beforeAll(async () => {
     CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT 'authenticated' $$;
     GRANT USAGE ON SCHEMA auth TO anon,authenticated,service_role;
     GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon,authenticated,service_role;`);
-  for (const file of ['0000_m03_shared_schema','0001_m04_security_boundaries','0002_m04_explicit_grant_hardening','0003_m04_immutable_security_audit','0007_c2_career_profile','0010_c25_private_document_reading']) {
+  for (const file of ['0000_m03_shared_schema','0001_m04_security_boundaries','0002_m04_explicit_grant_hardening','0003_m04_immutable_security_audit','0007_c2_career_profile','0010_c25_private_document_reading','0011_c2_c25_profile_draft_integration']) {
     await db.exec(readFileSync(`drizzle/migrations/${file}.sql`, 'utf8'));
   }
   await db.exec(`INSERT INTO auth.users VALUES('${id(1)}'),('${id(2)}');
@@ -50,6 +50,19 @@ describe('C2.5 private reading and review', () => {
     const audit = (await db.query<{ details: unknown }>("SELECT details FROM public.security_audit WHERE resource_type='career_document_readings'")).rows;
     expect(audit.length).toBeGreaterThan(0);
     expect(JSON.stringify(audit)).not.toContain('Excel');
+  });
+  it('keeps the source page through edit and confirmation, and never duplicates an accepted entry', async () => {
+    await asUser(1);
+    await db.query(`SELECT public.save_career_draft(NULL,'skill','{"name":"excel"}'::jsonb,NULL)`);
+    const claim = await begin(); await finish(claim.token);
+    await db.query('SELECT public.review_document_suggestion($1,0,true,$2::jsonb)', [id(201), '{"name":"Excel"}']);
+    expect((await db.query("SELECT * FROM public.career_profile_entries WHERE kind='skill'")).rows).toHaveLength(1);
+    await db.query('SELECT public.review_document_suggestion($1,1,true,$2::jsonb)', [id(201), '{"role":"Clerk at Acme"}']);
+    const e = (await db.query<{ id: string; draft_source_page: number }>("SELECT id,draft_source_page FROM public.career_profile_entries WHERE kind='experience'")).rows[0]!;
+    expect(e.draft_source_page).toBe(1);
+    await db.query(`SELECT public.save_career_draft($1,'experience','{"role":"Senior clerk"}'::jsonb,$2)`, [e.id, id(201)]);
+    await db.query('SELECT public.confirm_career_profile()');
+    expect((await db.query("SELECT confirmed_data,confirmed_source_page FROM public.career_profile_entries WHERE kind='experience'")).rows[0]).toEqual({ confirmed_data: { role: 'Senior clerk' }, confirmed_source_page: 1 });
   });
   it('rejects each unwanted suggestion without creating profile entries', async () => {
     await asUser(1); const claim = await begin(); await finish(claim.token);

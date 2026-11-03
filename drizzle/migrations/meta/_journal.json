@@ -78,6 +78,13 @@
       "when": 1793715889293,
       "tag": "0010_c25_private_document_reading",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793722276552,
+      "tag": "0011_c2_c25_profile_draft_integration",
+      "breakpoints": true
     }
   ]
 }

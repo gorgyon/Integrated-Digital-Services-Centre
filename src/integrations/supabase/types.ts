@@ -73,11 +73,13 @@ export type Database = {
           confirmed_at: string | null
           confirmed_data: Json | null
           confirmed_file_id: string | null
+          confirmed_source_page: number | null
           created_at: string
           customer_id: string
           draft_data: Json | null
           draft_file_id: string | null
           draft_remove: boolean
+          draft_source_page: number | null
           draft_updated_at: string | null
           id: string
           kind: Database["public"]["Enums"]["career_entry_kind"]
@@ -87,11 +89,13 @@ export type Database = {
           confirmed_at?: string | null
           confirmed_data?: Json | null
           confirmed_file_id?: string | null
+          confirmed_source_page?: number | null
           created_at?: string
           customer_id: string
           draft_data?: Json | null
           draft_file_id?: string | null
           draft_remove?: boolean
+          draft_source_page?: number | null
           draft_updated_at?: string | null
           id?: string
           kind: Database["public"]["Enums"]["career_entry_kind"]
@@ -101,11 +105,13 @@ export type Database = {
           confirmed_at?: string | null
           confirmed_data?: Json | null
           confirmed_file_id?: string | null
+          confirmed_source_page?: number | null
           created_at?: string
           customer_id?: string
           draft_data?: Json | null
           draft_file_id?: string | null
           draft_remove?: boolean
+          draft_source_page?: number | null
           draft_updated_at?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["career_entry_kind"]
@@ -738,6 +744,15 @@ export type Database = {
         Returns: boolean
       }
       begin_document_reading: { Args: { _file: string }; Returns: Json }
+      career_entry_duplicate: {
+        Args: {
+          _data: Json
+          _kind: Database["public"]["Enums"]["career_entry_kind"]
+          _pid: string
+          _skip: string
+        }
+        Returns: string
+      }
       complete_document_review: { Args: { _file: string }; Returns: undefined }
       confirm_career_profile: { Args: never; Returns: number }
       create_guest_customer: {
