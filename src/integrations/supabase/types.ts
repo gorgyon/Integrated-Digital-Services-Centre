@@ -14,6 +14,73 @@ export type Database = {
   }
   public: {
     Tables: {
+      career_profile_entries: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_data: Json | null
+          confirmed_file_id: string | null
+          created_at: string
+          customer_id: string
+          draft_data: Json | null
+          draft_file_id: string | null
+          draft_remove: boolean
+          draft_updated_at: string | null
+          id: string
+          kind: Database["public"]["Enums"]["career_entry_kind"]
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_data?: Json | null
+          confirmed_file_id?: string | null
+          created_at?: string
+          customer_id: string
+          draft_data?: Json | null
+          draft_file_id?: string | null
+          draft_remove?: boolean
+          draft_updated_at?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["career_entry_kind"]
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_data?: Json | null
+          confirmed_file_id?: string | null
+          created_at?: string
+          customer_id?: string
+          draft_data?: Json | null
+          draft_file_id?: string | null
+          draft_remove?: boolean
+          draft_updated_at?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["career_entry_kind"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "career_profile_entries_confirmed_file_id_fkey"
+            columns: ["confirmed_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "career_profile_entries_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "career_profile_entries_draft_file_id_fkey"
+            columns: ["draft_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_profiles: {
         Row: {
           consent_recorded_at: string | null
@@ -365,6 +432,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      confirm_career_profile: { Args: never; Returns: number }
       create_guest_customer: {
         Args: {
           _email: string
@@ -379,6 +447,7 @@ export type Database = {
         Returns: string
       }
       delete_my_career_document: { Args: { _file: string }; Returns: string }
+      discard_career_draft: { Args: { _entry: string }; Returns: undefined }
       file_role_allowed: {
         Args: { _category: Database["public"]["Enums"]["file_category"] }
         Returns: boolean
@@ -438,7 +507,20 @@ export type Database = {
         Args: { _original_name: string; _path: string }
         Returns: string
       }
+      request_career_entry_removal: {
+        Args: { _entry: string }
+        Returns: undefined
+      }
       revoke_file_access: { Args: { _grant: string }; Returns: undefined }
+      save_career_draft: {
+        Args: {
+          _data: Json
+          _entry: string
+          _file: string
+          _kind: Database["public"]["Enums"]["career_entry_kind"]
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role:
@@ -457,6 +539,7 @@ export type Database = {
         | "interview"
         | "outcome_received"
         | "withdrawn"
+      career_entry_kind: "education" | "qualification" | "result" | "skill"
       file_category:
         | "personal"
         | "career"
@@ -623,6 +706,7 @@ export const Constants = {
         "outcome_received",
         "withdrawn",
       ],
+      career_entry_kind: ["education", "qualification", "result", "skill"],
       file_category: [
         "personal",
         "career",

@@ -50,6 +50,13 @@
       "when": 1793617002310,
       "tag": "0006_c1_career_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793692147663,
+      "tag": "0007_c2_career_profile",
+      "breakpoints": true
     }
   ]
 }
