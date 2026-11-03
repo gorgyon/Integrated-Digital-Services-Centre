@@ -132,13 +132,19 @@ function SuggestionReview({ suggestion, index, fileId, refresh }: { suggestion: 
   const [busy, setBusy] = useState(false);
   const fields = readingFields[suggestion.kind];
   if (!fields) return null;
+  async function isDuplicate() {
+    const { data: row } = await supabase.from('career_document_readings').select('suggestions').eq('file_id', fileId).maybeSingle();
+    const list = (row?.suggestions ?? []) as unknown as (Suggestion & { duplicate?: boolean })[];
+    return list[index]?.duplicate === true;
+  }
   async function decide(accept: boolean) {
     setBusy(true);
     try {
       const { error } = await supabase.rpc('review_document_suggestion', { _file: fileId, _index: index, _accept: accept, _data: data });
+      const duplicate = !error && accept && await isDuplicate();
       if (error) { toast.error('Could not save your review. Please try again.'); return; }
       await refresh(); await qc.invalidateQueries({ queryKey: ['career-profile'] });
-      toast.success(accept ? 'Accepted as a profile draft.' : 'Suggestion rejected.');
+      toast.success(!accept ? 'Suggestion rejected.' : duplicate ? 'Already in your profile — no duplicate added.' : 'Accepted as a profile draft.');
     } finally { setBusy(false); }
   }
   return <section className="min-w-0 border-b border-border pb-4">
