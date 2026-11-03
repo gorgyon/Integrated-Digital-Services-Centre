@@ -16,6 +16,10 @@ export const Route = createFileRoute("/_authenticated/profile")({
     meta: [
       { title: "My career profile | IDSC" },
       { name: "description", content: "Your education, qualifications, results and skills." },
+      { property: "og:title", content: "My career profile | IDSC" },
+      { property: "og:description", content: "Your education, qualifications, results and skills." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: ProfilePage,
@@ -69,7 +73,7 @@ function ProfilePage() {
   const pending = (entries.data ?? []).filter((e) => e.draft_data || e.draft_remove);
 
   if (entries.isError)
-    return <Shell><p className="text-sm text-muted-foreground">Please create your customer details on the <Link to="/documents" className="text-primary underline">My documents</Link> page first.</p></Shell>;
+    return <Shell><p className="text-sm text-muted-foreground">Please create your applicant details on the <Link to="/documents" className="text-primary underline">My documents</Link> page first.</p></Shell>;
 
   return (
     <Shell>

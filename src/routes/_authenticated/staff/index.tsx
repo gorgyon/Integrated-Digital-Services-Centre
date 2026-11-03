@@ -14,6 +14,14 @@ import {
 } from "@/components/ui/card";
 
 export const Route = createFileRoute("/_authenticated/staff/")({
+  head: () => ({ meta: [
+    { title: "Staff area | IDSC" },
+    { name: "description", content: "Authorised IDSC staff account and assigned access." },
+    { property: "og:title", content: "Staff area | IDSC" },
+    { property: "og:description", content: "Authorised IDSC staff account and assigned access." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: StaffHomePage,
 });
 

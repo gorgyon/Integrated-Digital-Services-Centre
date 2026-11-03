@@ -15,7 +15,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated/documents")({
-  head: () => ({ meta: [{ title: "My documents | IDSC" }] }),
+  head: () => ({ meta: [
+    { title: "My documents | IDSC" },
+    { name: "description", content: "Manage your private career documents in the IDSC applicant portal." },
+    { property: "og:title", content: "My documents | IDSC" },
+    { property: "og:description", content: "Manage your private career certificates, transcripts and CVs." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: DocumentsPage,
 });
 
