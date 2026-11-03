@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      career_document_readings: {
+        Row: {
+          customer_id: string
+          error_code: string | null
+          extracted_text: string
+          file_id: string
+          id: string
+          method: string | null
+          run_token: string
+          status: string
+          suggestions: Json
+          updated_at: string
+        }
+        Insert: {
+          customer_id: string
+          error_code?: string | null
+          extracted_text?: string
+          file_id: string
+          id?: string
+          method?: string | null
+          run_token?: string
+          status?: string
+          suggestions?: Json
+          updated_at?: string
+        }
+        Update: {
+          customer_id?: string
+          error_code?: string | null
+          extracted_text?: string
+          file_id?: string
+          id?: string
+          method?: string | null
+          run_token?: string
+          status?: string
+          suggestions?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "career_document_readings_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "career_document_readings_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: true
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       career_profile_entries: {
         Row: {
           confirmed_at: string | null
@@ -683,6 +737,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      begin_document_reading: { Args: { _file: string }; Returns: Json }
+      complete_document_review: { Args: { _file: string }; Returns: undefined }
       confirm_career_profile: { Args: never; Returns: number }
       create_guest_customer: {
         Args: {
@@ -713,6 +769,17 @@ export type Database = {
           matched_on: string
           phone: string
         }[]
+      }
+      finish_document_reading: {
+        Args: {
+          _error?: string
+          _file: string
+          _method: string
+          _suggestions: Json
+          _text: string
+          _token: string
+        }
+        Returns: undefined
       }
       has_role: {
         Args: {
@@ -762,6 +829,10 @@ export type Database = {
         Args: { _entry: string }
         Returns: undefined
       }
+      review_document_suggestion: {
+        Args: { _accept: boolean; _data: Json; _file: string; _index: number }
+        Returns: string
+      }
       revoke_file_access: { Args: { _grant: string }; Returns: undefined }
       save_career_draft: {
         Args: {
@@ -790,7 +861,12 @@ export type Database = {
         | "interview"
         | "outcome_received"
         | "withdrawn"
-      career_entry_kind: "education" | "qualification" | "result" | "skill"
+      career_entry_kind:
+        | "education"
+        | "qualification"
+        | "result"
+        | "skill"
+        | "experience"
       file_category:
         | "personal"
         | "career"
@@ -967,7 +1043,13 @@ export const Constants = {
         "outcome_received",
         "withdrawn",
       ],
-      career_entry_kind: ["education", "qualification", "result", "skill"],
+      career_entry_kind: [
+        "education",
+        "qualification",
+        "result",
+        "skill",
+        "experience",
+      ],
       file_category: [
         "personal",
         "career",
