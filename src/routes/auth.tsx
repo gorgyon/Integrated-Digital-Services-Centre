@@ -43,14 +43,14 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-function friendlyError(message: string): string {
+export function friendlyError(message: string): string {
   const m = message.toLowerCase();
   if (m.includes("invalid login credentials"))
     return "Incorrect email or password. Please try again.";
   if (m.includes("email not confirmed"))
     return "Please confirm your email address first — check your inbox for the confirmation link.";
-  if (m.includes("user already registered"))
-    return "An account with this email already exists. Try signing in instead.";
+  if (m.includes("user already registered") || m.includes("already been registered"))
+    return "An account with this email already exists. Please sign in or reset your password.";
   if (m.includes("not allowed"))
     return "This email address cannot be used. Please check it and try again.";
   if (m.includes("password")) return "Password must be at least 8 characters.";
