@@ -38,10 +38,12 @@ function heading(line: string): SuggestionKind | 'ignore' | undefined {
   if (/^(skills|technical skills|key skills|competencies)$/.test(h)) return 'skill';
   if (/^(employment history|work experience|professional experience|experience)$/.test(h)) return 'experience';
   if (/^(references|contact details|personal details|profile|summary|interests|languages|declaration|achievements|responsibilities|duties)$/.test(h)) return 'ignore';
+  return undefined;
 }
 const organisation = (s: string) => /\b(university|college|school|institute|academy|technikon)\b/i.test(s) && !boilerplate.test(s);
 function labelled(lines: string[], pattern: RegExp): string | undefined {
   for (const line of lines) { const match = line.match(pattern); if (match?.[1]) return match[1].trim().slice(0, 200); }
+  return undefined;
 }
 export function structuredSuggestions(pages: ReadingPage[]): Suggestion[] {
   const out: Suggestion[] = [];
@@ -73,7 +75,8 @@ export function structuredSuggestions(pages: ReadingPage[]): Suggestion[] {
         const data: Record<string,string> = { subject: result[1]?.trim() ?? '', grade: result[2] ?? '' };
         const year = result[3] ?? yearFrom(lines.filter(l => /(?:completed|completion|year|examination)/i.test(l)).join(' '));
         if (year) data['year'] = year;
-        if (!data['grade'].includes('%') || parseFloat(data['grade']) <= 100) add('result', data, line, page);
+        const mark = data['grade'] ?? '';
+        if (!mark.includes('%') || parseFloat(mark) <= 100) add('result', data, line, page);
         continue;
       }
       const qualification = line.match(qualificationPattern);
