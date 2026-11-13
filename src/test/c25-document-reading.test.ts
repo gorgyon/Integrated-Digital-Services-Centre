@@ -2,6 +2,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { classifyPage, privatePageText } from '@/modules/career/structured-reading';
 import { suggestEntries, validateReadingInput } from '@/modules/career/reading-rules';
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 let db: PGlite;
@@ -24,7 +25,7 @@ beforeAll(async () => {
     CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT 'authenticated' $$;
     GRANT USAGE ON SCHEMA auth TO anon,authenticated,service_role;
     GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon,authenticated,service_role;`);
-  for (const file of ['0000_m03_shared_schema','0001_m04_security_boundaries','0002_m04_explicit_grant_hardening','0003_m04_immutable_security_audit','0007_c2_career_profile','0010_c25_private_document_reading','0011_c2_c25_profile_draft_integration']) {
+  for (const file of ['0000_m03_shared_schema','0001_m04_security_boundaries','0002_m04_explicit_grant_hardening','0003_m04_immutable_security_audit','0007_c2_career_profile','0010_c25_private_document_reading','0011_c2_c25_profile_draft_integration','0012_c25_structured_reading_duplicates']) {
     await db.exec(readFileSync(`drizzle/migrations/${file}.sql`, 'utf8'));
   }
   await db.exec(`INSERT INTO auth.users VALUES('${id(1)}'),('${id(2)}');
@@ -117,5 +118,66 @@ describe('C2.5 private reading and review', () => {
   it('preserves grades and explicitly stated completion years', () => {
     const result = suggestEntries([{ page: 1, text: 'Academic results\nMathematics 78% 2024', ocr: false }]);
     expect(result[0]?.data).toEqual({ subject: 'Mathematics', grade: '78%', year: '2024' });
+  });
+});
+
+describe('Structured document reading', () => {
+  const page = (text: string, n = 1) => ({ text, page: n, ocr: false });
+  it('classifies each page independently and excludes identity information', () => {
+    expect(classifyPage('Identity document\nID number: 9001015009087')).toBe('identity');
+    expect(suggestEntries([page('Identity document\nID number: 9001015009087\nCertificate in Security')])).toEqual([]);
+    expect(privatePageText(page('Identity document\nID number: 9001015009087'))).not.toContain('9001015009087');
+    expect(suggestEntries([page('Identity card', 1), page('Diploma in IT', 2)])[0]).toMatchObject({page: 2, documentType: 'diploma'});
+  });
+  it('groups a qualification with its explicitly stated institution, field and year', () => {
+    expect(suggestEntries([page('Diploma in Information Technology\nInstitution: Example College\nCompletion: 2023')])).toEqual([
+      expect.objectContaining({kind:'qualification', data:{title:'Diploma in Information Technology',issuer:'Example College',field:'Information Technology',year:'2023'},page:1})
+    ]);
+  });
+  it('ignores certificate boilerplate, legal notices and OCR fragments', () => {
+    const result = suggestEntries([page('National Senior Certificate\nThis candidate is awarded a certificate\nCertificate number: ABC123\nLegal notice: qualification verification\nxx..\nMathematics 78% 2024')]);
+    expect(result.map(s => s.kind)).toEqual(['qualification','result']);
+    expect(result[0]?.data.title).toBe('National Senior Certificate');
+  });
+  it('extracts explicit subjects and letter results but not arbitrary percentages', () => {
+    const result = suggestEntries([page('Academic transcript\nMathematics 78% 2024\nEnglish B 2024\nPass rate is 80%\nScience 120%')]);
+    expect(result.map(s => s.data)).toEqual([{subject:'Mathematics',grade:'78%',year:'2024'},{subject:'English',grade:'B',year:'2024'}]);
+  });
+  it('keeps school education without assuming matric and splits explicit skills', () => {
+    const result = suggestEntries([page('Education\nExample High School\nGrade 10 2022\nSkills\nExcel, Customer service')]);
+    expect(result.map(s => s.data)).toEqual([{institution:'Example High School',level:'Grade 10',year:'2022'},{name:'Excel'},{name:'Customer service'}]);
+    expect(result.some(s => s.kind === 'qualification')).toBe(false);
+  });
+  it('carries CV sections across pages and retains explicit employment evidence', () => {
+    const result = suggestEntries([page('Curriculum vitae\nSkills\nExcel'),page('Typing\nEmployment history\nClerk at Example Ltd | 2021-2023',2)]);
+    expect(result.map(s => s.kind)).toEqual(['skill','skill','experience']);
+    expect(result[2]).toMatchObject({page:2,data:{role:'Clerk',employer:'Example Ltd',period:'2021-2023'}});
+  });
+  it('deduplicates compatible repeated qualification evidence without discarding conflicting years', () => {
+    expect(suggestEntries([page('Diploma in IT'),page('Diploma in IT\nYear: 2023',2)])).toHaveLength(1);
+    expect(suggestEntries([page('Diploma in IT\nYear: 2022'),page('Diploma in IT\nYear: 2023',2)])).toHaveLength(2);
+  });
+});
+
+describe('Structured draft integration security', () => {
+  it('deduplicates across source documents despite additional compatible details', async () => {
+    await asUser(1);
+    await db.query(`SELECT public.save_career_draft(NULL,'qualification','{"title":"Diploma in IT"}',NULL)`);
+    await expect(db.query(`SELECT public.save_career_draft(NULL,'qualification','{"title":"Diploma in IT","issuer":"Example College","year":"2023"}',NULL)`)).rejects.toThrow(/already/);
+  });
+  it('allows genuinely different qualifications with conflicting explicit years', async () => {
+    await asUser(1);
+    await db.query(`SELECT public.save_career_draft(NULL,'qualification','{"title":"Diploma in IT","year":"2022"}',NULL)`);
+    await db.query(`SELECT public.save_career_draft(NULL,'qualification','{"title":"Diploma in IT","year":"2023"}',NULL)`);
+    expect((await db.query('SELECT * FROM public.career_profile_entries')).rows).toHaveLength(2);
+  });
+  it('re-reading keeps accepted profile drafts untouched and cannot be triggered by another owner', async () => {
+    await asUser(1); const claim = await begin(); await finish(claim.token);
+    await db.query('SELECT public.review_document_suggestion($1,0,true,$2::jsonb)',[id(201),'{{"name":"Excel"}}'.replace('{{','{').replace('}}','}')]);
+    await db.query('SELECT public.restart_document_reading($1)',[id(201)]);
+    expect((await db.query('SELECT confirmed_data,draft_data FROM public.career_profile_entries')).rows[0]).toEqual({confirmed_data:null,draft_data:{name:'Excel'}});
+    expect((await begin()).started).toBe(false);
+    await asUser(2);
+    await expect(db.query('SELECT public.restart_document_reading($1)',[id(201)])).rejects.toThrow(/Access denied/);
   });
 });
