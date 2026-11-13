@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { downloadCareerDocument } from '@/lib/career-documents.functions';
 import { readingErrors, readingFields, ReadingError } from '@/modules/career/reading-rules';
 import type { ReadingErrorCode, Suggestion } from '@/modules/career/reading-rules';
+import { documentLabels } from '@/modules/career/structured-reading';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,11 +39,11 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
     setSourceUrl(URL.createObjectURL(new Blob([bytes], { type: mime })));
     return bytes;
   }
-  async function process() {
+  async function process(restart = false) {
     setBusy(true); setMessage('Loading private document…');
     let token: string | undefined;
     try {
-      const { data: claim, error } = await supabase.rpc('begin_document_reading', { _file: fileId });
+      const { data: claim, error } = await supabase.rpc(restart ? 'restart_document_reading' : 'begin_document_reading', { _file: fileId });
       if (error) throw new Error('Could not start reading.');
       if (!claim || typeof claim !== 'object' || Array.isArray(claim) || claim['started'] !== true || typeof claim['token'] !== 'string') {
         await refresh(); setOpen(true); return;
@@ -85,11 +86,14 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
   return <div className="w-full min-w-0 border-t border-border pt-3">
     <div className="flex flex-wrap items-center gap-2">
       <Badge variant="secondary">{states[state]}</Badge>
-      {(state === 'uploaded' || state === 'failed' || stale) && <Button size="sm" variant="outline" disabled={busy || reading.isError} onClick={process}>
+      {(state === 'uploaded' || state === 'failed' || stale) && <Button size="sm" variant="outline" disabled={busy || reading.isError} onClick={() => process()}>
         {busy ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <FileSearch aria-hidden="true" />}
         {state === 'uploaded' ? 'Read document' : 'Retry reading'}
       </Button>}
       {(state === 'review_required' || state === 'completed') && <Button size="sm" variant="outline" onClick={review}>{open ? 'Close review' : 'Review reading'}</Button>}
+      {(state === 'review_required' || state === 'completed') && <Button size="sm" variant="outline" disabled={busy} onClick={() => {
+        if (confirm('Read this document again? Pending suggestions will be replaced. Existing profile drafts and confirmed information will not change.')) void process(true);
+      }}><FileSearch aria-hidden="true" />Read again</Button>}
     </div>
     {reading.isError && <p role="alert" className="mt-2 text-sm text-destructive">Could not load the reading status. <Button size="sm" variant="link" onClick={refresh}>Try again</Button></p>}
     {busy && <p role="status" className="mt-2 text-sm text-muted-foreground">{message}</p>}
@@ -107,7 +111,7 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
             <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-sm text-primary underline">Open source document</a>
           </>}
           <details className="mt-3">
-            <summary className="cursor-pointer text-sm font-medium">Original extracted text</summary>
+            <summary className="cursor-pointer text-sm font-medium">Extracted text (identity details withheld on new readings)</summary>
             <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">{reading.data.extracted_text}</pre>
           </details>
         </div>
@@ -148,7 +152,7 @@ function SuggestionReview({ suggestion, index, fileId, refresh }: { suggestion: 
     } finally { setBusy(false); }
   }
   return <section className="min-w-0 border-b border-border pb-4">
-    <div className="flex flex-wrap items-center gap-2 text-sm font-medium"><span className="capitalize">{suggestion.kind}</span><span className="text-xs text-muted-foreground">Page {suggestion.page}</span><Badge variant="outline">{suggestion.status === 'pending' ? 'Check wording and missing details' : suggestion.status === 'accepted' ? 'Accepted as draft' : 'Rejected'}</Badge></div>
+    <div className="flex flex-wrap items-center gap-2 text-sm font-medium"><span className="capitalize">{suggestion.kind === 'result' ? 'Academic results' : suggestion.kind === 'experience' ? 'Employment history' : suggestion.kind}</span><span className="text-xs text-muted-foreground">Page {suggestion.page}{suggestion.documentType ? ` · ${documentLabels[suggestion.documentType]}` : ''}</span><Badge variant="outline">{suggestion.status === 'pending' ? 'Check wording and missing details' : suggestion.status === 'accepted' ? 'Accepted as draft' : 'Rejected'}</Badge></div>
     <blockquote className="my-2 break-words border-l-2 border-border pl-3 text-xs text-muted-foreground">{suggestion.source}</blockquote>
     {suggestion.status === 'pending' && <>
       <div className="grid gap-2">{fields.map(field => <div key={field.key} className="grid gap-1">

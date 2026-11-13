@@ -1,4 +1,5 @@
 import { ReadingError, validateReadingInput, suggestEntries } from './reading-rules';
+import { privatePageText } from './structured-reading';
 import type { Worker } from 'tesseract.js';
 
 /** Imported only on an explicit browser action. No document leaves the applicant's browser for OCR. */
@@ -84,7 +85,7 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
         } finally { canvas.width = 0; canvas.height = 0; }
       } finally { bitmap.close(); }
     }
-    const text = pages.map(p => `Page ${p.page}\n${p.text}`).join('\n\n');
+    const text = pages.map(privatePageText).join('\n\n');
     if (!pages.some(p => p.text.trim().length > 2)) throw new ReadingError('unreadable');
     return { text, suggestions: suggestEntries(pages), method: pages.every(p => p.ocr) ? 'ocr' : pages.some(p => p.ocr) ? 'mixed' : 'pdf_text' };
   }

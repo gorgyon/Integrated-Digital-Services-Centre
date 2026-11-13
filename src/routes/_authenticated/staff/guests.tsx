@@ -18,6 +18,8 @@ export const Route = createFileRoute("/_authenticated/staff/guests")({
       { name: "description", content: "Front-desk intake of walk-in guest customers." },
       { property: "og:title", content: "Guest customer intake — IDSC staff" },
       { property: "og:description", content: "Front-desk intake of walk-in guest customers." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: GuestIntakePage,
