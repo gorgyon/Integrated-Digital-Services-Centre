@@ -35,6 +35,6 @@ Accepted entries continue to use existing owner-checked C2 draft RPCs and retain
 - No universal matric requirement is introduced. Existing C3 has collection only, not applicant eligibility matching; mandatory/preferred matching was not added as an unrelated new milestone. The no-unrequired-qualification rejection rule is recorded for that future milestone.
 - Browser confirmation was deliberately not clicked because the account already contains unrelated pending drafts; the existing Confirm all changes would promote them too. Confirmation and isolation were verified in the actual-database-role automated tests.
 - Source synchronization remains platform-managed; remote GitHub visibility was not independently verified.
-- Per-task credit usage is unavailable; no additional credits or services were purchased.
+- Usage tool reports **151 credits cumulatively for Oct 22–Nov 22, 2026**, not this task's cost; per-task usage is unavailable. No additional credits or services were purchased.
 
 Stopped for applicant review. Actual-document checks await the files or explicit authorisation to read specified existing private documents.
