@@ -844,6 +844,7 @@ export type Database = {
         Args: { _entry: string }
         Returns: undefined
       }
+      restart_document_reading: { Args: { _file: string }; Returns: Json }
       review_document_suggestion: {
         Args: { _accept: boolean; _data: Json; _file: string; _index: number }
         Returns: string

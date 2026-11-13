@@ -11,6 +11,7 @@
 
 ## Platform boundaries
 - Document reading runs lazily in the applicant browser using bundled PDF.js/Tesseract assets; owner-only readings are persisted through audited RPCs, suggestions become source-linked C2 drafts only, and run tokens/cache prevent repeated processing. This keeps OCR private and avoids unsupported server-native libraries or paid services.
+- Structured reading uses page classification and conservative section/block rules, excludes identity pages from suggestions and persisted text, and deduplicates compatible semantic entries in the owner-checked database helper; this avoids fragment qualifications and duplicate drafts without merging conflicting evidence.
 - Password creation and reset share browser-safe policy helpers and password field/checklist components; this prevents validation and presentation drift without imposing new rules on existing sign-in passwords.
 
 - Password recovery uses the existing Cloud Auth client and a public `/reset-password` route; validate recovery sessions with the provider before changing passwords so ordinary signed-in visits do not become reset flows.
