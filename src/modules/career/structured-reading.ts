@@ -7,7 +7,7 @@ export const documentLabels: Record<DocumentType, string> = {
   degree: 'Degree', transcript: 'Academic transcript', supporting: 'Supporting document',
 };
 const qualificationPattern = /\b(?:national senior certificate|senior certificate|matric(?:ulation)?|grade 12|(?:national |advanced |higher |postgraduate )?diploma(?: in [\w &(),/-]+)?|(?:higher |national )?certificate in [\w &(),/-]+|(?:bachelor|master|doctor)(?: of|['’]s)? [\w &(),/-]+|(?:bsc|bcom|beng|ba|btech|msc|mba|phd)(?:\s+(?:in|of)\s+[\w &(),/-]+)?|degree in [\w &(),/-]+)\b/i;
-const boilerplate = /\b(this (?:candidate|certificate|document)|hereby|awarded to|has been awarded|certify that|certifies that|in accordance|all rights reserved|verification|document reference|certificate (?:number|no)|registration (?:number|no)|identity (?:number|no)|id (?:number|no)|issued under|signed on behalf|not transferable|legal notice|page \d+ of|copyright)\b/i;
+const boilerplate = /\b(this (?:candidate|certificate|document)|hereby|awarded to|has been awarded|certify that|certifies that|in accordance|all rights reserved|(?:certificate|document) verification|verify (?:this|at)|document reference|certificate (?:number|no)|registration (?:number|no)|identity (?:number|no)|id (?:number|no)|issued under|signed on behalf|not transferable|legal notice|page \d+ of|copyright)\b/i;
 const identity = /\b(identity (?:document|card)|identification card|smart id|republic of south africa[\s\S]{0,100}identity|passport)\b/i;
 const yearFrom = (s: string) => {
   const years = s.match(/\b(?:19|20)\d{2}\b/g);
