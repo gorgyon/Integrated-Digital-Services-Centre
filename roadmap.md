@@ -1,6 +1,8 @@
 # C2.5 — document reading and career profile extraction only
-- [ ] Improve page classification, structured extraction, boilerplate filtering and identity privacy without changing confirmed entries.
-- [ ] Verify structured extraction and existing draft workflows; applicant CV/supporting-document verification awaits the actual files.
+- [x] Improve page classification, structured extraction, boilerplate filtering and identity privacy without changing confirmed entries.
+- [x] 28 focused tests passed; synthetic three-page PDF read/re-read, acceptance, profile editing/removal and desktop/mobile rendering verified. Temporary files removed.
+- [ ] Verify Lillian's actual CV/supporting documents after she supplies them or authorises processing existing private files; existing confirmed data and old drafts remain unchanged.
+- [ ] Eligibility matching is not implemented in C3; apply actual mandatory/preferred requirements without assuming matric when that milestone is authorised.
 - [x] Free local PDF text extraction and OCR, private ownership-checked processing records and cached results.
 - [x] Editable source-linked suggestions, individual accept/reject, accepted C2 drafts only; explicit profile confirmation.
 - [x] 16 focused tests pass; authenticated selectable PDF, PNG OCR, scanned PDF fallback and draft review verified. Synthetic documents removed; completion report in docs/C25_DOCUMENT_READING.md.
