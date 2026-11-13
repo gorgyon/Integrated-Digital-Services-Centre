@@ -137,7 +137,7 @@ describe('Structured document reading', () => {
   it('ignores certificate boilerplate, legal notices and OCR fragments', () => {
     const result = suggestEntries([page('National Senior Certificate\nThis candidate is awarded a certificate\nCertificate number: ABC123\nLegal notice: qualification verification\nxx..\nMathematics 78% 2024')]);
     expect(result.map(s => s.kind)).toEqual(['qualification','result']);
-    expect(result[0]?.data.title).toBe('National Senior Certificate');
+    expect(result[0]?.data['title']).toBe('National Senior Certificate');
   });
   it('extracts explicit subjects and letter results but not arbitrary percentages', () => {
     const result = suggestEntries([page('Academic transcript\nMathematics 78% 2024\nEnglish B 2024\nPass rate is 80%\nScience 120%')]);

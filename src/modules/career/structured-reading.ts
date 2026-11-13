@@ -72,8 +72,8 @@ export function structuredSuggestions(pages: ReadingPage[]): Suggestion[] {
       if (result && !/\b(?:is|was|are|rate|average|total|overall|minimum|achieved|obtained|passed)\b/i.test(result[1] ?? '') && (section === 'result' || type === 'transcript' || type === 'matric')) {
         const data: Record<string,string> = { subject: result[1]?.trim() ?? '', grade: result[2] ?? '' };
         const year = result[3] ?? yearFrom(lines.filter(l => /(?:completed|completion|year|examination)/i.test(l)).join(' '));
-        if (year) data.year = year;
-        if (!data.grade.includes('%') || parseFloat(data.grade) <= 100) add('result', data, line, page);
+        if (year) data['year'] = year;
+        if (!data['grade'].includes('%') || parseFloat(data['grade']) <= 100) add('result', data, line, page);
         continue;
       }
       const qualification = line.match(qualificationPattern);
@@ -89,29 +89,29 @@ export function structuredSuggestions(pages: ReadingPage[]): Suggestion[] {
         const title = qualification[0].replace(/\s*[,|–-]?\s*\b(?:19|20)\d{2}\b.*$/, '').trim().slice(0, 200);
         const data: Record<string,string> = { title };
         const issuer = labelled(block, /^(?:institution|issued by|issuer)\s*:\s*(.+)$/i) ?? block.find(l => l !== line && organisation(l));
-        if (issuer) data.issuer = issuer;
+        if (issuer) data['issuer'] = issuer;
         const field = labelled(block, /^field of study\s*:\s*(.+)$/i) ?? title.match(/\b(?:in|of)\s+(.+)$/i)?.[1];
-        if (field) data.field = field;
-        const year = yearFrom(block.join(' ')); if (year) data.year = year;
+        if (field) data['field'] = field;
+        const year = yearFrom(block.join(' ')); if (year) data['year'] = year;
         add('qualification', data, block.join('\n'), page);
         continue;
       }
       if (section === 'education' && organisation(line)) {
         const data: Record<string,string> = { institution: line.slice(0,200) };
         const next = lines[i + 1];
-        if (next && /^grade\s+(?:[1-9]|1[01])\b/i.test(next)) { data.level = next.replace(/\s*[,|–-]?\s*\b(?:19|20)\d{2}\b.*$/, ''); const year = yearFrom(next); if (year) data.year = year; consumed.add(i + 1); }
-        add('education', data, next && data.level ? `${line}\n${next}` : line, page);
+        if (next && /^grade\s+(?:[1-9]|1[01])\b/i.test(next)) { data['level'] = next.replace(/\s*[,|–-]?\s*\b(?:19|20)\d{2}\b.*$/, ''); const year = yearFrom(next); if (year) data['year'] = year; consumed.add(i + 1); }
+        add('education', data, next && data['level'] ? `${line}\n${next}` : line, page);
       } else if (section === 'skill' && line.length <= 160 && !/[.!?]$/.test(line)) {
         for (const part of line.split(/[,;|•]/)) { const name = part.trim(); if (name.length >= 2 && name.length <= 80 && !/^\d+$/.test(name) && name.split(' ').length <= 8) add('skill', { name }, name, page); }
       } else if (section === 'experience' && line.length <= 180 && !/[.!?]$/.test(line) && !/^\d/.test(line)) {
         const match = line.match(/^(.+?)\s+(?:at|@)\s+(.+?)(?:\s*[|,]\s*((?:19|20)\d{2}.*))?$/i);
         const data: Record<string,string> = { role: (match?.[1] ?? line).slice(0,200) };
-        if (match?.[2]) data.employer = match[2];
-        if (match?.[3]) data.period = match[3];
+        if (match?.[2]) data['employer'] = match[2];
+        if (match?.[3]) data['period'] = match[3];
         const next = lines[i + 1];
         if (next && /^(?:dates|period|employer)\s*:/i.test(next)) {
           const employer = labelled([next], /^employer\s*:\s*(.+)$/i); const period = labelled([next], /^(?:dates|period)\s*:\s*(.+)$/i);
-          if (employer) data.employer = employer; if (period) data.period = period; consumed.add(i + 1);
+          if (employer) data['employer'] = employer; if (period) data['period'] = period; consumed.add(i + 1);
         }
         add('experience', data, line, page);
       }
