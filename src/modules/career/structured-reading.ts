@@ -69,7 +69,7 @@ export function structuredSuggestions(pages: ReadingPage[]): Suggestion[] {
       if (boilerplate.test(line) || /\[identity|https?:|@/.test(line)) continue;
       // Only explicit subject + mark, never arbitrary percentage sentences.
       const result = line.match(/^([A-Za-z][A-Za-z &()/-]{1,90}?)\s*[:|–-]?\s+(\d{1,3}(?:\.\d+)?\s*%|[A-F][+-]?)(?:\s+(\d{4}))?$/);
-      if (result && (section === 'result' || type === 'transcript' || type === 'matric')) {
+      if (result && !/\b(?:is|was|are|rate|average|total|overall|minimum|achieved|obtained|passed)\b/i.test(result[1] ?? '') && (section === 'result' || type === 'transcript' || type === 'matric')) {
         const data: Record<string,string> = { subject: result[1]?.trim() ?? '', grade: result[2] ?? '' };
         const year = result[3] ?? yearFrom(lines.filter(l => /(?:completed|completion|year|examination)/i.test(l)).join(' '));
         if (year) data.year = year;
