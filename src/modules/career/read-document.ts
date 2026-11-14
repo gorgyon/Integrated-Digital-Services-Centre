@@ -24,7 +24,9 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
       });
       if (cancelled) { await worker.terminate(); throw new ReadingError('interrupted'); }
     }
+    const score = (text: string, confidence: number) => confidence + 20 * (text.match(/\b(?:transcript|development|information|semester|technology|national|diploma|certificate)\b/gi)?.length ?? 0);
     let best = (await worker.recognize(canvas, { rotateAuto: true })).data;
+    let bestAngle = 0;
     // Sideways scans can contain a long but unusable pre-existing OCR layer.
     if (best.confidence < 65) {
       const rotated = document.createElement('canvas');
@@ -37,10 +39,26 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
           context.translate(rotated.width / 2, rotated.height / 2); context.rotate(angle);
           context.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
           const candidate = (await worker.recognize(rotated)).data;
-          if (candidate.confidence > best.confidence) best = candidate;
-          if (best.confidence >= 80) break;
+          if (score(candidate.text, candidate.confidence) > score(best.text, best.confidence)) { best = candidate; bestAngle = angle; }
         }
       } finally { rotated.width = 0; rotated.height = 0; }
+    }
+    if (/transcript|semester/i.test(best.text)) {
+      const upright = document.createElement('canvas');
+      const crop = document.createElement('canvas');
+      try {
+        upright.width = Math.abs(bestAngle) === Math.PI / 2 ? canvas.height : canvas.width;
+        upright.height = Math.abs(bestAngle) === Math.PI / 2 ? canvas.width : canvas.height;
+        const ctx = upright.getContext('2d');
+        if (ctx) {
+          ctx.translate(upright.width / 2, upright.height / 2); ctx.rotate(bestAngle);
+          ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+          crop.width = Math.round(upright.width * .62); crop.height = upright.height;
+          crop.getContext('2d')?.drawImage(upright, 0, 0);
+          const focused = (await worker.recognize(crop)).data;
+          if (score(focused.text, focused.confidence) > score(best.text, best.confidence)) best = focused;
+        }
+      } finally { upright.width = 0; upright.height = 0; crop.width = 0; crop.height = 0; }
     }
     return { text: best.text, confidence: best.confidence };
   }
