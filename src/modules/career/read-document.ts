@@ -38,7 +38,14 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
           if (!context) throw new ReadingError('unreadable');
           context.translate(rotated.width / 2, rotated.height / 2); context.rotate(angle);
           context.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
-          const candidate = (await worker.recognize(rotated)).data;
+          let candidate = (await worker.recognize(rotated)).data;
+          const focusedCanvas = document.createElement('canvas');
+          try {
+            focusedCanvas.width = Math.round(rotated.width * .62); focusedCanvas.height = rotated.height;
+            focusedCanvas.getContext('2d')?.drawImage(rotated, 0, 0);
+            const focused = (await worker.recognize(focusedCanvas)).data;
+            if (score(focused.text, focused.confidence) > score(candidate.text, candidate.confidence)) candidate = focused;
+          } finally { focusedCanvas.width = 0; focusedCanvas.height = 0; }
           if (score(candidate.text, candidate.confidence) > score(best.text, best.confidence)) { best = candidate; bestAngle = angle; }
         }
       } finally { rotated.width = 0; rotated.height = 0; }
