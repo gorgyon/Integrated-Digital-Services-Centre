@@ -8,7 +8,7 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
   let worker: Worker | undefined;
   let deadline: ReturnType<typeof setTimeout> | undefined;
   let cancelled = false;
-  const pages: { page: number; text: string; ocr: boolean }[] = [];
+   const pages: { page: number; text: string; ocr: boolean; confidence?: number }[] = [];
   async function ocr(canvas: HTMLCanvasElement) {
     if (cancelled) throw new ReadingError('interrupted');
     if (!worker) {
@@ -24,7 +24,25 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
       });
       if (cancelled) { await worker.terminate(); throw new ReadingError('interrupted'); }
     }
-    return (await worker.recognize(canvas)).data.text;
+    let best = (await worker.recognize(canvas, { rotateAuto: true })).data;
+    // Sideways scans can contain a long but unusable pre-existing OCR layer.
+    if (best.confidence < 65) {
+      const rotated = document.createElement('canvas');
+      try {
+        for (const angle of [Math.PI / 2, -Math.PI / 2, Math.PI]) {
+          rotated.width = angle === Math.PI ? canvas.width : canvas.height;
+          rotated.height = angle === Math.PI ? canvas.height : canvas.width;
+          const context = rotated.getContext('2d');
+          if (!context) throw new ReadingError('unreadable');
+          context.translate(rotated.width / 2, rotated.height / 2); context.rotate(angle);
+          context.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+          const candidate = (await worker.recognize(rotated)).data;
+          if (candidate.confidence > best.confidence) best = candidate;
+          if (best.confidence >= 80) break;
+        }
+      } finally { rotated.width = 0; rotated.height = 0; }
+    }
+    return { text: best.text, confidence: best.confidence };
   }
   async function process() {
     if (mime === 'application/pdf') {
@@ -47,8 +65,10 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
             if (lastY !== undefined && y !== undefined && Math.abs(y - lastY) > 3) text += '\n';
             text += item.str + (item.hasEOL ? '\n' : ' '); lastY = y;
           }
-          let usedOCR = false;
-          if (text.trim().length < 20) {
+          let usedOCR = false; let confidence: number | undefined;
+          const operators = await page.getOperatorList();
+          const scanned = operators.fnArray.some(op => op === pdfjs.OPS.paintImageXObject || op === pdfjs.OPS.paintInlineImageXObject);
+          if (text.trim().length < 20 || scanned) {
             usedOCR = true;
             const base = page.getViewport({ scale: 1 });
             const scale = Math.min(2, 2400 / Math.max(base.width, base.height));
@@ -57,10 +77,10 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
             canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
             try {
               await page.render({ canvas, viewport }).promise;
-              text = await ocr(canvas);
+              const result = await ocr(canvas); text = result.text; confidence = result.confidence;
             } finally { canvas.width = 0; canvas.height = 0; }
           }
-          pages.push({ page: n, text, ocr: usedOCR });
+          pages.push({ page: n, text, ocr: usedOCR, confidence });
           if (pages.reduce((a, p) => a + p.text.length, 0) > 100000) throw new ReadingError('limit');
           page.cleanup();
         }
@@ -81,13 +101,13 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
           const context = canvas.getContext('2d');
           if (!context) throw new ReadingError('unreadable');
           context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-          pages.push({ page: 1, text: await ocr(canvas), ocr: true });
+          pages.push({ page: 1, ...await ocr(canvas), ocr: true });
         } finally { canvas.width = 0; canvas.height = 0; }
       } finally { bitmap.close(); }
     }
     const text = pages.map(privatePageText).join('\n\n');
     if (!pages.some(p => p.text.trim().length > 2)) throw new ReadingError('unreadable');
-    return { text, suggestions: suggestEntries(pages), method: pages.every(p => p.ocr) ? 'ocr' : pages.some(p => p.ocr) ? 'mixed' : 'pdf_text' };
+    return { text, suggestions: suggestEntries(pages), pages, method: pages.every(p => p.ocr) ? 'ocr' : pages.some(p => p.ocr) ? 'mixed' : 'pdf_text' };
   }
   try {
     return await Promise.race([process(), new Promise<never>((_, reject) => {
