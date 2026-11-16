@@ -8,7 +8,7 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
   let worker: Worker | undefined;
   let deadline: ReturnType<typeof setTimeout> | undefined;
   let cancelled = false;
-   const pages: { page: number; text: string; ocr: boolean; confidence?: number }[] = [];
+  const pages: { page: number; text: string; ocr: boolean; confidence?: number }[] = [];
   async function ocr(canvas: HTMLCanvasElement) {
     if (cancelled) throw new ReadingError('interrupted');
     if (!worker) {
@@ -105,7 +105,7 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
               const result = await ocr(canvas); text = result.text; confidence = result.confidence;
             } finally { canvas.width = 0; canvas.height = 0; }
           }
-          pages.push({ page: n, text, ocr: usedOCR, confidence });
+          pages.push({ page: n, text, ocr: usedOCR, ...(confidence === undefined ? {} : { confidence }) });
           if (pages.reduce((a, p) => a + p.text.length, 0) > 100000) throw new ReadingError('limit');
           page.cleanup();
         }

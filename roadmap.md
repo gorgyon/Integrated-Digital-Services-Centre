@@ -1,4 +1,5 @@
 # C2.5 — document reading and career profile extraction only
+- [ ] Fix the preview-blocking optional OCR confidence type error; check document-reading regression tests and preview loading only.
 - [ ] Read the existing seven-page Lillian CV.pdf through audited owner access; improve independent qualification, transcript, specialisation, experience, skill and licence extraction; verify all pages without changing confirmed data.
 - [x] Improve page classification, structured extraction, boilerplate filtering and identity privacy without changing confirmed entries.
 - [x] 28 focused tests passed; synthetic three-page PDF read/re-read, acceptance, profile editing/removal and desktop/mobile rendering verified. Temporary files removed.
