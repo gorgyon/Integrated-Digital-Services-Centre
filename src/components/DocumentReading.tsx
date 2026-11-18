@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useServerFn } from '@tanstack/react-start';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -13,12 +13,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import type { ReadingProgress } from '@/modules/career/reading-session';
 
 export function DocumentReading({ fileId, name }: { fileId: string; name: string }) {
   const qc = useQueryClient();
   const download = useServerFn(downloadCareerDocument);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [readingProgress, setReadingProgress] = useState<ReadingProgress>();
+  const [elapsed, setElapsed] = useState(0);
+  const [stopping, setStopping] = useState(false);
+  const controller = useRef<AbortController | undefined>(undefined);
   const [open, setOpen] = useState(false);
   const [sourceUrl, setSourceUrl] = useState<string>();
   const [sourceMime, setSourceMime] = useState('');
@@ -32,6 +38,13 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
     refetchInterval: query => query.state.data?.status === 'processing' ? 5000 : false,
   });
   useEffect(() => () => { if (sourceUrl) URL.revokeObjectURL(sourceUrl); }, [sourceUrl]);
+  useEffect(() => {
+    if (!busy) return;
+    const started = Date.now();
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => clearInterval(timer);
+  }, [busy]);
+  useEffect(() => () => controller.current?.abort(), []);
   async function refresh() { await qc.invalidateQueries({ queryKey: ['document-reading', fileId] }); }
   function showSource(base64: string, mime: string) {
     const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
@@ -40,7 +53,8 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
     return bytes;
   }
   async function process(restart = false) {
-    setBusy(true); setMessage('Loading private document…');
+    setBusy(true); setMessage('Loading private document…'); setElapsed(0); setStopping(false); setReadingProgress(undefined);
+    controller.current = new AbortController();
     let token: string | undefined;
     try {
       const { data: claim, error } = await supabase.rpc(restart ? 'restart_document_reading' : 'begin_document_reading', { _file: fileId });
@@ -53,13 +67,14 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
       const file = await download({ data: { fileId } });
       const bytes = showSource(file.base64, file.mimeType);
       const { readDocument } = await import('@/modules/career/read-document');
-      const result = await readDocument(bytes, file.mimeType, setMessage);
+      const result = await readDocument(bytes, file.mimeType, setMessage, { signal: controller.current.signal, onProgress: setReadingProgress });
       const { error: saveError } = await supabase.rpc('finish_document_reading', {
         _file: fileId, _token: token, _text: result.text,
         _suggestions: result.suggestions, _method: result.method,
       });
       if (saveError) throw new Error('Could not save the reading.');
       setOpen(true); await refresh();
+      if (result.partial) toast.message('Readable results saved. Some pages need manual review.');
     } catch (error) {
       const code = error instanceof ReadingError ? error.code : 'interrupted';
       if (token) {
@@ -69,7 +84,7 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
         await refresh();
       }
       toast.error(readingErrors[code]);
-    } finally { setBusy(false); setMessage(''); }
+    } finally { setBusy(false); setMessage(''); controller.current = undefined; }
   }
   async function review() {
     setOpen(value => !value);
@@ -83,9 +98,10 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
   const states: Record<string, string> = { uploaded: 'Uploaded', processing: 'Processing', review_required: 'Review required', completed: 'Completed', failed: 'Failed' };
   const stale = state === 'processing' && reading.data && Date.now() - new Date(reading.data.updated_at).getTime() >= 600000;
   const errorCode = reading.data?.error_code as ReadingErrorCode | null;
+  const summary = reading.data?.extracted_text.startsWith('Reading summary:') ? reading.data.extracted_text.split('\n\n')[0] : undefined;
   return <div className="w-full min-w-0 border-t border-border pt-3">
     <div className="flex flex-wrap items-center gap-2">
-      <Badge variant="secondary">{states[state]}</Badge>
+      <Badge variant="secondary">{busy ? 'Reading' : states[state]}</Badge>
       {(state === 'uploaded' || state === 'failed' || stale) && <Button size="sm" variant="outline" disabled={busy || reading.isError} onClick={() => process()}>
         {busy ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <FileSearch aria-hidden="true" />}
         {state === 'uploaded' ? 'Read document' : 'Retry reading'}
@@ -96,11 +112,17 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
       }}><FileSearch aria-hidden="true" />Read again</Button>}
     </div>
     {reading.isError && <p role="alert" className="mt-2 text-sm text-destructive">Could not load the reading status. <Button size="sm" variant="link" onClick={refresh}>Try again</Button></p>}
-    {busy && <p role="status" className="mt-2 text-sm text-muted-foreground">{message}</p>}
+    {busy && <div className="mt-3 space-y-2">
+      <div className="flex items-center justify-between gap-2 text-sm"><span role="status">{stopping ? 'Stopping and keeping readable results…' : message}</span><span className="shrink-0 text-muted-foreground">{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}</span></div>
+      <Progress value={readingProgress?.percent ?? 0} aria-label="Document reading progress" />
+      {readingProgress && <p className="text-xs text-muted-foreground">{readingProgress.completed} of {readingProgress.total} pages processed</p>}
+      <Button size="sm" variant="outline" disabled={stopping || readingProgress?.phase === 'saving'} onClick={() => { setStopping(true); controller.current?.abort(); }}><X aria-hidden="true" />Stop reading</Button>
+    </div>}
     {state === 'processing' && !busy && <p className="mt-2 text-sm text-muted-foreground">{stale ? 'Reading was interrupted. You can retry.' : 'Reading is in progress. Keep the page where you started it open.'}</p>}
-    {state === 'failed' && errorCode && <p role="alert" className="mt-2 text-sm text-destructive">{readingErrors[errorCode] ?? readingErrors.unreadable}</p>}
+    {state === 'failed' && errorCode && !busy && <p role="alert" className="mt-2 text-sm text-destructive">{readingErrors[errorCode] ?? readingErrors.unreadable}</p>}
     {open && reading.data && (state === 'review_required' || state === 'completed') && <div className="mt-4 grid min-w-0 gap-5">
       <h3 className="font-semibold">Review — {name}</h3>
+      {summary && <p role="status" className="whitespace-pre-line text-sm text-muted-foreground">{summary}</p>}
       <div className="grid min-w-0 gap-4 md:grid-cols-2">
         <div className="min-w-0">
           <h4 className="mb-2 text-sm font-medium">Source document</h4>

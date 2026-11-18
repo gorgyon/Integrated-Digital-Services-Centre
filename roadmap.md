@@ -1,4 +1,5 @@
 # C2.5 — document reading and career profile extraction only
+- [x] Improved slow-reading experience: 60-second page deadlines, partial results, page progress, elapsed time and stop control. Existing seven-page CV completed with 4 reliable pages; transcript pages 4–6 flagged unclear, not converted to suggestions. 27 tests passed; signed-in desktop/mobile preview verified, no page errors or overflow. No profile entries changed.
 - [x] Fixed the preview-blocking optional OCR confidence type error; 23 document-reading tests passed, build OK, preview opens without page errors. Seven-page extraction verification remains outstanding.
 - [ ] Read the existing seven-page Lillian CV.pdf through audited owner access; improve independent qualification, transcript, specialisation, experience, skill and licence extraction; verify all pages without changing confirmed data.
 - [x] Improve page classification, structured extraction, boilerplate filtering and identity privacy without changing confirmed entries.
