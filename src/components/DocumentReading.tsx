@@ -273,7 +273,7 @@ function SuggestionReview({ suggestion, index, fileId, refresh }: { suggestion: 
   }
   const [main, ...rest] = fields;
   const details = rest.filter(f => data[f.key]);
-  const missing = rest.filter(f => !data[f.key]).map(f => f.label.toLowerCase());
+  const missing = rest.filter(f => !data[f.key] && f.key !== 'qualification').map(f => f.label.toLowerCase());
   return <div className={`min-w-0 rounded-md border border-border p-3 ${suggestion.status !== 'pending' ? 'bg-muted/50' : ''}`}>
     <div className="flex flex-wrap items-start justify-between gap-2">
       <div className="min-w-0">
