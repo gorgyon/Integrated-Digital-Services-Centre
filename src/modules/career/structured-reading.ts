@@ -1,7 +1,7 @@
 import type { Suggestion, SuggestionKind } from './reading-rules';
 
 export type DocumentType = 'cv' | 'identity' | 'matric' | 'diploma' | 'degree' | 'transcript' | 'supporting';
-export type ReadingPage = { page: number; text: string; ocr: boolean };
+export type ReadingPage = { page: number; text: string; ocr: boolean; layoutText?: string };
 export const documentLabels: Record<DocumentType, string> = {
   cv: 'CV', identity: 'Identity document', matric: 'Matric certificate', diploma: 'Diploma',
   degree: 'Degree', transcript: 'Academic transcript', supporting: 'Supporting document',
@@ -160,9 +160,11 @@ export function structuredSuggestions(pages: ReadingPage[], unclear: Set<number>
       }
     }
     if (type === 'cv') {
-      const personal = personalDetails(page.text);
+      const personal = personalDetails(page.layoutText ? `${page.text}\n${page.layoutText}` : page.text);
       if (personal['full_name'] || personal['email'] || personal['phone']) add('personal', personal, Object.values(personal).join(' · '), page);
       cvLayoutEntries(lines, bullets, page, add, out);
+      if (page.layoutText) layoutFacts(page.layoutText, out.filter(s => s.page === page.page));
+      if (page.layoutText) for (const name of layoutSkills(page.layoutText)) add('skill', { name }, name, page);
     }
     carriedSection = type === 'cv' || type === 'supporting' ? section : undefined;
   }
@@ -241,9 +243,30 @@ export function personalDetails(raw: string): Record<string, string> {
   const name = lines.slice(0, 6).find(l => /^[A-Z][A-Za-z'-]+(?: [A-Z][A-Za-z'-]+){1,3}$/.test(l) && !/\b(?:curriculum|vitae|resume|university|school|college|solutions|technology|self|employed)\b/i.test(l));
   if (name) data['full_name'] = titleCase(name);
   const text = lines.join('\n');
-  const email = text.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/); if (email) data['email'] = email[0];
-  const phone = text.match(/(?:\+27|\b0)[\s-]?\d{2}[\s-]?\d{3}[\s-]?\d{4}\b/); if (phone) data['phone'] = phone[0].replace(/\s+/g, ' ');
-  const location = labelled(lines, /^(?:address|residential address|location|city|town)\s*:\s*(.+)$/i); if (location) data['location'] = location;
+  // Email addresses are lower case: a capital I in one is OCR for l.
+  const email = text.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/); if (email) data['email'] = email[0].replace(/I/g, 'l').toLowerCase();
+  // A referee's number is not the applicant's: skip phones in the few lines after a References heading.
+  const refAt = lines.findIndex(l => /^references?\b/i.test(l));
+  for (const [i, l] of lines.entries()) {
+    if (refAt >= 0 && i > refAt && i <= refAt + 4) continue;
+    const phone = l.match(/(?:\+27|\b0)[\s-]?\d{2}[\s-]?\d{3}[\s-]?\d{4}\b/); if (phone) { data['phone'] = phone[0].replace(/\s+/g, ' '); break; }
+  }
+  let location = labelled(lines, /^(?:address|residential address|location|city|town)\s*:\s*(.+)$/i);
+  if (!location) {
+    const at = lines.findIndex(l => /(?:^|\s)\d{1,5}\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3},?\s*$/.test(l));
+    if (at >= 0) {
+      const street = lines[at]!.match(/\d{1,5}\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}/)![0];
+      const town = lines[at + 1]?.match(/^([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\.?$/)?.[1];
+      location = town ? `${street}, ${town}` : street;
+    }
+  }
+  if (location) data['location'] = location;
+  const about = lines.findIndex(l => /^(?:about me|profile|summary|personal profile|career objective|objective)$/i.test(l));
+  if (about >= 0) {
+    const body: string[] = [];
+    for (let i = about + 1; i < lines.length && body.length < 10; i++) { const l = lines[i]!; if (/^[A-Z][A-Z ]{3,}$/.test(l)) break; body.push(l); }
+    if (body.join(' ').length > 20) data['summary'] = body.join(' ').slice(0, 600);
+  }
   const languages = labelled(lines, /^languages?(?: spoken)?\s*:\s*(.+)$/i); if (languages) data['languages'] = languages;
   const hobbies = lines.find(l => (l.match(hobbyWords)?.length ?? 0) >= 2) ?? labelled(lines, /^(?:hobbies|interests)\s*:\s*(.+)$/i);
   if (hobbies) data['interests'] = hobbies.replace(/^(?:hobbies|interests)\s*:\s*/i, '');
@@ -291,4 +314,58 @@ function transcriptRows(page: ReadingPage, add: Add, out: Suggestion[], unclearS
     if (qualification) data['qualification'] = qualification;
     add('result', data, `${unclearScan ? 'Unclear scan — check this row against the page. ' : ''}${line}`, page);
   }
+}
+
+const normalize = (s: string | undefined) => (s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+/** A month and/or year at the start of a line ("Aprit 2024 —", "2017-Present"), as printed in a CV's side column. */
+function datePiece(line: string) {
+  const range = line.match(/^\W*((?:19|20)\d{2})\s*[-–]\s*(present|current|now|(?:19|20)\d{2})\b/i);
+  if (range) return `${range[1]} – ${/^\d/.test(range[2]!) ? range[2] : 'Present'}`;
+  const m = line.match(/^\W*([A-Za-z]{3,9})\b\.?\s*((?:19|20)\d{2})?\b/);
+  if (!m) return /^\W*((?:19|20)\d{2})\b/.exec(line)?.[1];
+  const idx = months.indexOf(m[1]!.slice(0, 3).toLowerCase());
+  if (idx < 0 || distance(m[1]!.toLowerCase(), monthNames[idx]!.toLowerCase().slice(0, m[1]!.length)) > 1) return undefined;
+  return m[2] ? `${monthNames[idx]} ${m[2]}` : monthNames[idx];
+}
+/** Fills years and dates that designed CVs print in pale side columns, using the image reading of the page. Fills gaps only. */
+export function layoutFacts(layoutText: string, mine: Suggestion[]) {
+  const lines = fixOcr(layoutText).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const first = (l: string) => l.split(/\s+/)[0]?.toLowerCase().replace(/[^a-z]/g, '') ?? '';
+  for (const edu of mine.filter(s => s.kind === 'education' && !s.data['year'])) {
+    const last = (edu.data['institution'] ?? '').split(/\s+/).pop()?.toLowerCase() ?? '';
+    const at = lines.findIndex(l => last.length > 3 && distance(first(l), last) <= 1);
+    if (at < 0) continue;
+    const year = lines.slice(at + 1, at + 4).map(l => l.match(/^\W*((?:19|20)\d{2})\b/)?.[1]).find(Boolean);
+    if (!year) continue;
+    edu.data['year'] = year;
+    for (const q of mine.filter(s => s.kind === 'qualification' && !s.data['year'] && normalize(s.data['issuer']) === normalize(edu.data['institution']))) q.data['year'] = year;
+  }
+  for (const job of mine.filter(s => s.kind === 'experience')) {
+    const role = normalize(job.data['role']);
+    const at = lines.findIndex(l => role.length > 4 && normalize(l).includes(role));
+    if (at < 0) continue;
+    const pieces: string[] = [];
+    for (const l of lines.slice(at + 1, at + 7)) { const p = datePiece(l); if (p) pieces.push(p); if (pieces.length === 2 || /present/i.test(p ?? '')) break; }
+    // "February" + "2017 – Present" -> "February 2017 – Present"
+    let period = pieces.join(' – ').replace(/^([A-Z][a-z]+) – ((?:19|20)\d{2}) – /, '$1 $2 – ').replace(/^([A-Z][a-z]+) – ((?:19|20)\d{2})/, '$1 $2');
+    if (/\d{4}/.test(period) && period.length > (job.data['period'] ?? '').length) job.data['period'] = period;
+  }
+}
+
+/** Skills listed with arrow bullets under a Skills heading (OCR may read the heading as "SKIILS"), in one or two columns. */
+export function layoutSkills(layoutText: string): string[] {
+  const lines = fixOcr(layoutText).split(/\r?\n/).map(l => l.trim());
+  const at = lines.findIndex(l => /^sk[il1]{2,3}l?s\b/i.test(l) && l.length < 20);
+  if (at < 0) return [];
+  const found: string[] = [];
+  for (const line of lines.slice(at + 1, at + 20)) {
+    if (/^[A-Z]{4,}\b/.test(line) && !/[>»]/.test(line)) break;
+    for (const part of line.split(/\s*[>»➢]\s*/).map(p => p.replace(/^[:.\s]+|[,\s]+$/g, '')).filter(Boolean)) {
+      if (/^[A-Za-z][A-Za-z ,/#+.-]{1,50}$/.test(part) && !found.some(f => f.toLowerCase() === part.toLowerCase())) found.push(part.replace(/\bJavaSript\b/, 'JavaScript'));
+    }
+  }
+  // A line that continues the previous bullet ("JavaSript" after "PHP, HTML, CSS, SQL,") joins it.
+  return found.slice(0, 30);
 }

@@ -241,4 +241,15 @@ describe('designed CV pages without readable headings', () => {
     expect(rows.map(s => s.data)).toEqual([{ subject: 'Development Software IB', grade: '78% — Pass with distinction', year: '2019' }, { subject: 'Computing Systems IB', grade: 'Pass', year: '2019' }]);
     expect(rows[0]?.source).toMatch(/^Unclear scan/);
   });
+  it('fills contact details, years and dates that a designed CV prints in images or pale columns', () => {
+    const text = ['JANE DOE', 'SELF', 'EMPLOYED', 'Internet Café Assistant', '. Worked at Example Printing Solutions in 2017.', '. Currently working at Example Printing',
+      'TSHWANE', 'UNIVERSITY', 'OF', 'TECHNOLOGY', 'Diploma in Information Technology', '. Specialized in Software development.'].join('\n');
+    const layoutText = ['9 12 Main Road,', 'Polokwane.', '072 000 1111', 'jane.Im@example.com', 'ABOUT ME', 'Accomplished developer who loves clean software.', 'REFERENCE', 'JOHN DOE', 'Tel: 079 999 8888',
+      'SELF Internet Café Assistant', 'Polokwane which is a family business', 'February | 207', '2017-Present 1 .', 'TSHWANE Diploma in Information Technology', 'UNIVERSITY', 'TECHNOLOGY Specialized', 'Pretoria !', '2023 ]'].join('\n');
+    const out = structuredSuggestions([{ page: 1, text, ocr: false, layoutText }]);
+    expect(out.find(s => s.kind === 'personal')?.data).toMatchObject({ phone: '072 000 1111', email: 'jane.lm@example.com', location: '12 Main Road, Polokwane', summary: 'Accomplished developer who loves clean software.' });
+    expect(out.find(s => s.kind === 'education')?.data['year']).toBe('2023');
+    expect(out.find(s => s.kind === 'qualification')?.data['year']).toBe('2023');
+    expect(out.find(s => s.kind === 'experience')?.data['period']).toBe('February 2017 – Present');
+  });
 });

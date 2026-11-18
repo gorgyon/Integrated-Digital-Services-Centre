@@ -7,7 +7,7 @@ describe('bounded private document reading', () => {
     expect(usablePdfText('National Senior Certificate awarded by Example Secondary School in 2012')).toBe(true);
     expect(usablePdfText('x 1 2 || ~ 00 l')).toBe(false);
   });
-  it('stops a stalled page at 90 seconds instead of losing the entire document', async () => {
+  it('stops a stalled page at 3 minutes instead of losing the entire document', async () => {
     vi.useFakeTimers(); const stop = vi.fn();
     const result = withPageDeadline(() => new Promise(() => {}), stop);
     const check = expect(result).rejects.toMatchObject({ code: 'interrupted' });

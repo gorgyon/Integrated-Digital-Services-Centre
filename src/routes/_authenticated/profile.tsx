@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { apsScore } from "@/modules/career/aps";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({
@@ -32,7 +33,7 @@ type Data = Record<string, string>;
 const KINDS: { kind: Kind; title: string; fields: { key: string; label: string }[] }[] = [
   { kind: "personal", title: "Personal and contact details", fields: [
     { key: "full_name", label: "Full name" }, { key: "phone", label: "Phone" }, { key: "email", label: "Email" },
-    { key: "location", label: "Location or address" }, { key: "languages", label: "Languages" }, { key: "interests", label: "Interests and hobbies" } ] },
+    { key: "location", label: "Location or address" }, { key: "languages", label: "Languages" }, { key: "interests", label: "Interests and hobbies" }, { key: "summary", label: "About me" } ] },
   { kind: "education", title: "Education", fields: [
     { key: "institution", label: "School or institution" }, { key: "level", label: "Level (e.g. Grade 12, Diploma)" },
     { key: "field", label: "Field of study" }, { key: "year", label: "Year completed" } ] },
@@ -123,6 +124,7 @@ function ProfilePage() {
               <Button size="sm" variant="outline" disabled={(formHere && !editing?.entry) || single} onClick={() => setEditing({ kind, entry: null })}>Add</Button>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
+              {kind === "result" ? <ApsSummary entries={list} /> : null}
               {formHere ? (
                 <EntryForm key={editing.entry?.id ?? `new-${kind}`} {...editing} docs={docs.data ?? []}
                   onCancel={() => setEditing(null)}
@@ -185,7 +187,7 @@ function EntryForm({ kind, entry, docs, onCancel, onSave }: {
           e.preventDefault();
           const f = new FormData(e.currentTarget);
           const data: Data = {};
-          for (const { key } of def.fields) { const v = String(f.get(key) ?? "").trim().slice(0, 200); if (v) data[key] = v; }
+          for (const { key } of def.fields) { const v = String(f.get(key) ?? "").trim().slice(0, key === "summary" ? 600 : 200); if (v) data[key] = v; }
           const first = def.fields[0];
           if (!first || !data[first.key]) { toast.error(`${first?.label ?? "Entry"} is required`); return; }
           onSave(data, String(f.get("file") ?? ""));
@@ -193,7 +195,7 @@ function EntryForm({ kind, entry, docs, onCancel, onSave }: {
           {def.fields.map((fl) => (
             <div key={fl.key} className="flex flex-col gap-1">
               <Label htmlFor={`${kind}-${fl.key}`}>{fl.label}</Label>
-              <Input id={`${kind}-${fl.key}`} name={fl.key} defaultValue={start[fl.key] ?? ""} maxLength={200} />
+              <Input id={`${kind}-${fl.key}`} name={fl.key} defaultValue={start[fl.key] ?? ""} maxLength={fl.key === "summary" ? 600 : 200} />
             </div>
           ))}
           <div className="flex flex-col gap-1">
@@ -224,6 +226,22 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
         {children}
       </main>
+    </div>
+  );
+}
+
+function ApsSummary({ entries }: { entries: Entry[] }) {
+  const aps = apsScore(entries.filter((e) => !e.draft_remove).map((e) => asData(e.draft_data ?? e.confirmed_data)));
+  if (!aps) return null;
+  const drafts = entries.some((e) => e.draft_data);
+  return (
+    <div className="rounded-md border border-primary/40 bg-primary/5 p-3 text-sm">
+      <p className="font-medium">APS score: <span className="text-lg">{aps.score}</span></p>
+      <p className="text-muted-foreground">
+        Your {aps.counted.length < 6 ? `${aps.counted.length} marked` : "best 6"} matric subject{aps.counted.length === 1 ? "" : "s"}, Life Orientation left out
+        {drafts ? ", including drafts you have not confirmed yet" : ""}. Universities may calculate it differently.
+      </p>
+      {aps.missing.length ? <p className="mt-1 text-muted-foreground">No mark yet for: {aps.missing.join(", ")}. Add the mark with Edit, or accept it from your matric certificate.</p> : null}
     </div>
   );
 }

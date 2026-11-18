@@ -1,8 +1,8 @@
 import { ReadingError } from './reading-rules';
 
-export const PAGE_READING_TIMEOUT_MS = 90_000;
+export const PAGE_READING_TIMEOUT_MS = 180_000;
 /** Retrying a few hard pages (often sideways scans) gets more time per page. */
-export const RETRY_PAGE_TIMEOUT_MS = 180_000;
+export const RETRY_PAGE_TIMEOUT_MS = 300_000;
 export type UnreadReason = 'slow_scan' | 'sideways' | 'unclear' | 'error';
 export type PageOutcome = { page: number; status: 'read' | 'uncertain' | 'skipped'; reason?: UnreadReason; angle?: number };
 export const unreadReasons: Record<UnreadReason, string> = {

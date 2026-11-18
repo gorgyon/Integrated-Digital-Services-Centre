@@ -1,10 +1,35 @@
 import { ReadingError, validateReadingInput, suggestEntries } from './reading-rules';
-import { privatePageText } from './structured-reading';
+import { privatePageText, classifyPage } from './structured-reading';
 import { usablePdfText, withPageDeadline, readingSummary, realWords } from './reading-session';
 import type { PageOutcome, ReadingProgress } from './reading-session';
 import type { Worker } from 'tesseract.js';
 
-type Page = { page: number; text: string; ocr: boolean; confidence?: number; rotated?: boolean; angle?: number };
+type Page = { page: number; text: string; ocr: boolean; confidence?: number; rotated?: boolean; angle?: number; layoutText?: string };
+/** Designed CVs: light text on dark panels is flipped to dark-on-light and pale grey text darkened, so OCR sees contact details and dates. */
+function layoutEnhance(canvas: HTMLCanvasElement) {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true }); if (!ctx) return;
+  const w = canvas.width, h = canvas.height, B = 24;
+  const img = ctx.getImageData(0, 0, w, h); const d = img.data;
+  const grey = new Uint8ClampedArray(w * h);
+  for (let i = 0; i < w * h; i++) grey[i] = (d[i * 4]! * 299 + d[i * 4 + 1]! * 587 + d[i * 4 + 2]! * 114) / 1000;
+  // Average brightness of 24px blocks, softened over neighbouring blocks: tells dark panels from dark text.
+  const bw = Math.ceil(w / B), bh = Math.ceil(h / B); const sum = new Float64Array(bw * bh); const cnt = new Uint32Array(bw * bh);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const k = (y / B | 0) * bw + (x / B | 0); sum[k]! += grey[y * w + x]!; cnt[k]!++; }
+  const mean = new Float64Array(bw * bh); for (let k = 0; k < mean.length; k++) mean[k] = sum[k]! / Math.max(1, cnt[k]!);
+  const dark = new Uint8Array(bw * bh);
+  for (let by = 0; by < bh; by++) for (let bx = 0; bx < bw; bx++) {
+    let t = 0, n = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const yy = by + dy, xx = bx + dx; if (yy >= 0 && yy < bh && xx >= 0 && xx < bw) { t += mean[yy * bw + xx]!; n++; } }
+    dark[by * bw + bx] = t / n < 110 ? 1 : 0;
+  }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x; let v = grey[i]!;
+    if (dark[(y / B | 0) * bw + (x / B | 0)]) v = 255 - v;
+    v = v >= 225 ? 255 : v * .45;
+    d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v;
+  }
+  ctx.putImageData(img, 0, 0);
+}
 /** Greyscale and contrast stretch so faint scans are easier to read. */
 function enhance(canvas: HTMLCanvasElement) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true }); if (!ctx) return;
@@ -28,7 +53,7 @@ function rotateCanvas(source: HTMLCanvasElement, angle: number) {
 }
 /** Loaded only by an explicit applicant action. OCR stays in this browser. */
 export async function readDocument(bytes: Uint8Array, mime: string, progress: (message: string) => void,
-  options: { signal?: AbortSignal; onProgress?: (value: ReadingProgress) => void; pages?: number[]; pageTimeoutMs?: number; onPagePreview?: (page: number, url: string) => void } = {}) {
+  options: { signal?: AbortSignal; onProgress?: (value: ReadingProgress) => void; pages?: number[]; pageTimeoutMs?: number; onPagePreview?: (page: number, url: string, upright?: boolean) => void } = {}) {
   validateReadingInput(bytes.byteLength, mime);
   let worker: Worker | undefined;
   let total = 1;
@@ -50,13 +75,22 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
     try { thumb.getContext('2d')?.drawImage(source, 0, 0, thumb.width, thumb.height); options.onPagePreview(n, thumb.toDataURL('image/jpeg', .7)); }
     finally { thumb.width = 0; thumb.height = 0; }
   }
+  /** Shows the page the way it is being read: turned upright. */
+  function uprightPreview(n: number, source: HTMLCanvasElement, angle: number) {
+    if (!options.onPagePreview) return;
+    const thumb = document.createElement('canvas'); const scale = 240 / Math.max(1, Math.max(source.width, source.height));
+    thumb.width = Math.ceil(source.width * scale); thumb.height = Math.ceil(source.height * scale);
+    let turned: HTMLCanvasElement | undefined;
+    try { thumb.getContext('2d')?.drawImage(source, 0, 0, thumb.width, thumb.height); turned = rotateCanvas(thumb, angle); options.onPagePreview(n, turned.toDataURL('image/jpeg', .75), true); }
+    catch { /* preview is optional */ } finally { thumb.width = 0; thumb.height = 0; if (turned) { turned.width = 0; turned.height = 0; } }
+  }
   function planned() { return options.pages?.filter(n => n <= total).length || total; }
   function terminate() {
     generation++;
     const old = worker; worker = undefined;
     void old?.terminate().catch(() => {});
   }
-  async function ocr(canvas: HTMLCanvasElement) {
+  async function ocrReady() {
     if (!worker) {
       const startedGeneration = generation;
       report('ocr', `Preparing scan reader · page ${current} of ${total}…`);
@@ -74,11 +108,15 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
       if (!active || options.signal?.aborted || generation !== startedGeneration) { await created.terminate(); throw new ReadingError('interrupted'); }
       worker = created;
     }
-    const reader = worker;
+  }
+  async function ocr(canvas: HTMLCanvasElement) {
+    await ocrReady();
+    const reader = worker!;
     // Turn the page upright first: a quick low-resolution check of each orientation, then one full read.
     enhance(canvas);
     const found = await uprightAngle(reader, canvas);
     const angle = found.angle;
+    if (angle) { uprightPreview(current, canvas, angle); report('ocr', `Page ${current} turned upright ✓`); }
     // Already read at full size the right way up: no second pass needed.
     if (found.data) return { text: found.data.text, confidence: found.data.confidence, rotated: angle !== 0, angle };
     const upright = angle ? rotateCanvas(canvas, angle) : canvas;
@@ -163,7 +201,29 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
                   if (lastY !== undefined && y !== undefined && Math.abs(y - lastY) > 3) text += '\n';
                   text += item.str + (item.hasEOL ? '\n' : ' '); lastY = y;
                 }
-                if (usablePdfText(text)) return { page: n, text, ocr: false };
+                if (usablePdfText(text)) {
+                  if (classifyPage(text) !== 'cv') return { page: n, text, ocr: false };
+                  // CV designs often keep contact details and dates in images or pale colours the text layer misses.
+                  let layoutText: string | undefined;
+                  const base = page.getViewport({ scale: 1 });
+                  const viewport = page.getViewport({ scale: Math.min(2, 1800 / Math.max(base.width, base.height)) });
+                  const canvas = document.createElement('canvas'); canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
+                  try {
+                    report('ocr', `Reading the design of page ${n} for contact details and dates…`);
+                    const rendering = page.render({ canvas, viewport }); render = rendering; await rendering.promise;
+                    if (abandon) throw new ReadingError('interrupted');
+                    layoutEnhance(canvas);
+                    // Extra details only: if this is slow, keep the text already read instead of losing the page.
+                    layoutText = await withPageDeadline(async () => {
+                      await ocrReady(); const reader = worker!;
+                      // Automatic page layout keeps a CV's columns apart instead of mixing their lines.
+                      await reader.setParameters({ tessedit_pageseg_mode: '3' as never });
+                      try { return (await reader.recognize(canvas)).data.text; }
+                      finally { if (worker === reader) await reader.setParameters({ tessedit_pageseg_mode: '6' as never }).catch(() => {}); }
+                    }, terminate, options.signal, 60_000);
+                  } catch (error) { if (abandon || options.signal?.aborted) throw error; } finally { canvas.width = 0; canvas.height = 0; }
+                  return layoutText ? { page: n, text, ocr: false, layoutText } : { page: n, text, ocr: false };
+                }
                 if (abandon) throw new ReadingError('interrupted');
                 stage = 'ocr';
                 const base = page.getViewport({ scale: 1 });

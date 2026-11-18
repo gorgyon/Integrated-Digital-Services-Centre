@@ -32,7 +32,11 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
   const [thumbs, setThumbs] = useState<Record<number, string>>({});
   const [livePage, setLivePage] = useState<number>();
   const sourceBytes = useRef<Uint8Array | undefined>(undefined);
-  const onPagePreview = (page: number, url: string) => { setThumbs(t => ({ ...t, [page]: url })); setLivePage(page); };
+  const [upright, setUpright] = useState<Record<number, string>>({});
+  const onPagePreview = (page: number, url: string, turned?: boolean) => {
+    if (turned) setUpright(t => ({ ...t, [page]: url })); else setThumbs(t => ({ ...t, [page]: url }));
+    setLivePage(page);
+  };
   const reading = useQuery({
     queryKey: ['document-reading', fileId],
     queryFn: async () => {
@@ -59,7 +63,7 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
     return bytes;
   }
   async function process(restart = false) {
-    setBusy(true); setMessage('Loading private document…'); setElapsed(0); setStopping(false); setReadingProgress(undefined); setLivePage(undefined);
+    setBusy(true); setMessage('Loading private document…'); setElapsed(0); setStopping(false); setReadingProgress(undefined); setLivePage(undefined); setUpright({});
     controller.current = new AbortController();
     let token: string | undefined;
     try {
@@ -160,9 +164,14 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
     {reading.isError && <p role="alert" className="mt-2 text-sm text-destructive">Could not load the reading status. <Button size="sm" variant="link" onClick={refresh}>Try again</Button></p>}
     {busy && <div className="mt-3 space-y-2">
       <div className="flex items-center justify-between gap-2 text-sm"><span role="status">{stopping ? 'Stopping and keeping readable results…' : message}</span><span className="shrink-0 text-muted-foreground">{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}</span></div>
-      {livePage && thumbs[livePage] && <div className="flex items-center gap-3">
-        <img src={thumbs[livePage]} alt={`Preview of page ${livePage} being read`} className="w-20 shrink-0 rounded-md border border-border" />
-        <p className="text-sm font-medium">Now reading page {livePage}{readingProgress ? ` of ${readingProgress.total}` : ''}</p>
+      {livePage && (upright[livePage] ?? thumbs[livePage]) && <div className="flex items-center gap-3">
+        <div className="flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted">
+          <img src={upright[livePage] ?? thumbs[livePage]} alt={`Page ${livePage} being read${upright[livePage] ? ', turned upright' : ''}`} className="max-h-full max-w-full object-contain" />
+        </div>
+        <div className="min-w-0 space-y-1">
+          <p className="text-sm font-medium">Now reading page {livePage}{readingProgress ? ` of ${readingProgress.total}` : ''}</p>
+          {upright[livePage] && <Badge variant="secondary"><Check className="size-3" aria-hidden="true" />Turned upright</Badge>}
+        </div>
       </div>}
       <Progress value={readingProgress?.percent ?? 0} aria-label="Document reading progress" />
       {readingProgress && <p className="text-xs text-muted-foreground">{readingProgress.completed} of {readingProgress.total} pages processed</p>}
@@ -185,10 +194,12 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
           const identity = p.label === 'Identity document';
           return <section key={p.page} aria-label={`Page ${p.page}`} className="min-w-0 rounded-md border border-border p-3">
             <div className="flex gap-3">
-              {thumbs[p.page] ?? (p.page === 1 && sourceMime !== 'application/pdf' ? sourceUrl : undefined)
+              {upright[p.page] ?? thumbs[p.page] ?? (p.page === 1 && sourceMime !== 'application/pdf' ? sourceUrl : undefined)
                 ? <div className="flex h-24 w-20 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-muted">
-                    <img src={thumbs[p.page] ?? sourceUrl} alt={`Page ${p.page} preview${p.angle ? ', shown upright' : ''}`} style={p.angle ? { transform: `rotate(${p.angle}deg)` } : undefined}
-                      className={`max-h-full max-w-full object-contain ${p.angle === 90 || p.angle === 270 ? 'scale-75' : ''} ${identity ? 'blur-sm' : ''}`} />
+                    {upright[p.page]
+                      ? <img src={upright[p.page]} alt={`Page ${p.page} preview, shown upright`} className={`max-h-full max-w-full object-contain ${identity ? 'blur-sm' : ''}`} />
+                      : <img src={thumbs[p.page] ?? sourceUrl} alt={`Page ${p.page} preview${p.angle ? ', shown upright' : ''}`} style={p.angle ? { transform: `rotate(${p.angle}deg)` } : undefined}
+                      className={`max-h-full max-w-full object-contain ${p.angle === 90 || p.angle === 270 ? 'scale-75' : ''} ${identity ? 'blur-sm' : ''}`} />}
                   </div>
                 : <div className="flex h-24 w-20 shrink-0 items-center justify-center rounded border border-border bg-muted text-xs text-muted-foreground">Page {p.page}</div>}
               <div className="min-w-0 space-y-1">

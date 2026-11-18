@@ -10,7 +10,7 @@ export const readingFields: Record<SuggestionKind, { key: string; label: string 
   qualification: [{ key: 'title', label: 'Qualification' }, { key: 'issuer', label: 'Issued by' }, { key: 'field', label: 'Field of study' }, { key: 'year', label: 'Year' }],
   result: [{ key: 'subject', label: 'Subject or module' }, { key: 'grade', label: 'Mark or grade' }, { key: 'year', label: 'Year' }, { key: 'qualification', label: 'Part of qualification' }],
   skill: [{ key: 'name', label: 'Skill' }, { key: 'level', label: 'Level' }],
-  personal: [{ key: 'full_name', label: 'Full name' }, { key: 'phone', label: 'Phone' }, { key: 'email', label: 'Email' }, { key: 'location', label: 'Location or address' }, { key: 'languages', label: 'Languages' }, { key: 'interests', label: 'Interests and hobbies' }],
+  personal: [{ key: 'full_name', label: 'Full name' }, { key: 'phone', label: 'Phone' }, { key: 'email', label: 'Email' }, { key: 'location', label: 'Location or address' }, { key: 'languages', label: 'Languages' }, { key: 'interests', label: 'Interests and hobbies' }, { key: 'summary', label: 'About me' }],
   experience: [{ key: 'role', label: 'Role or experience' }, { key: 'employer', label: 'Employer' }, { key: 'period', label: 'Dates' }],
 };
 export type ReadingErrorCode = 'unreadable' | 'encrypted' | 'oversized' | 'unsupported' | 'limit' | 'interrupted';

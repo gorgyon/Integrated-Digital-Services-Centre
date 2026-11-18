@@ -52,3 +52,9 @@
 - [x] Change career portal display wording only; preserve backend customer roles and staff/business terminology.
 - [x] Six targeted tests pass; browser checks cover recovery request (simulated email response), registration wording and invalid/expired links; no runtime errors.
 - [x] Existing default authentication emails and preview reset redirects confirmed configured; real inbox delivery and complete emailed-link reset remain unverified.
+
+## C2.5 follow-up (18 Nov)
+- [x] Matric: merge CV subject list with certificate marks (no duplicates); every subject shows its percentage
+- [x] Show APS score calculated from matric marks
+- [x] Upright page previews while reading; longer per-page time (3 min, retry 5 min)
+- [x] CV contact details, about me, years, dates and skills from designed CV images
