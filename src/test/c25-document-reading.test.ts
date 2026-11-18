@@ -2,7 +2,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { classifyPage, privatePageText } from '@/modules/career/structured-reading';
+import { classifyPage, privatePageText, structuredSuggestions } from '@/modules/career/structured-reading';
 import { suggestEntries, validateReadingInput } from '@/modules/career/reading-rules';
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 let db: PGlite;
@@ -179,5 +179,33 @@ describe('Structured draft integration security', () => {
     expect((await begin()).started).toBe(false);
     await asUser(2);
     await expect(db.query('SELECT public.restart_document_reading($1)',[id(201)])).rejects.toThrow(/Access denied/);
+  });
+});
+
+describe('designed CV pages without readable headings', () => {
+  const cv = ['JANE DOE', 'SELF', 'EMPLOYED', 'ACME', 'SOLUTIONS', 'NORTHERN', 'UNIVERSITY', 'OF', 'TECHNOLOGY', 'RIVERSIDE', 'HIGH', 'SCHOOL', 'JavaSript',
+    'Singing, Dancing', 'lnternet Caf6 Assistant', '. Worked at Example Printing Solutions', 'for a full year in', '2017.', '. Did Typing, Scanning, Laminating,',
+    'Software Development (HOD)', '. Developed systems and websites for Acme Solutions. lwas a team', 'leader at the same time.',
+    'Diploma in lnformation Technology', '. Diploma in lT graduate.', '. Specialized in Software development.',
+    'National Senior Certif icate', '. English', '. Mathematics', '. PhysicalSciences'].join('\n\n');
+  const found = structuredSuggestions([{ page: 1, text: cv, ocr: true }]);
+  const of = (kind: string) => found.filter(s => s.kind === kind).map(s => s.data);
+  it('reads the CV as a CV, not as a diploma', () => expect(classifyPage(cv)).toBe('cv'));
+  it('finds both qualifications separately, with the specialisation and institution', () => {
+    expect(of('qualification')).toEqual([
+      { title: 'Diploma in Information Technology', field: 'Information Technology — Software Development specialisation', issuer: 'Northern University of Technology' },
+      { title: 'National Senior Certificate', issuer: 'Riverside High School' },
+    ]);
+  });
+  it('fills education, work experience, matric subjects and skills', () => {
+    expect(of('education').map(e => e['institution'])).toEqual(['Northern University of Technology', 'Riverside High School']);
+    expect(of('experience')).toEqual([{ role: 'Internet Café Assistant', employer: 'Example Printing Solutions', period: '2017' }, { role: 'Software Development (HOD)', employer: 'Acme Solutions' }]);
+    expect(of('result').map(r => r['subject'])).toEqual(['English', 'Mathematics', 'Physical Sciences']);
+    expect(of('skill').map(s => s['name'])).toEqual(expect.arrayContaining(['JavaScript', 'Typing', 'Team leadership']));
+  });
+  it('withholds ID numbers that OCR split with spaces', () => {
+    const p = { page: 2, text: 'NOTICE OF CHANGE OF ADDRESS\nI.D. No. 900101 5009 087', ocr: true };
+    expect(classifyPage(p.text)).toBe('identity');
+    expect(privatePageText({ ...p, text: 'Curriculum vitae\nID No 900101 5009 087' })).not.toMatch(/5009/);
   });
 });

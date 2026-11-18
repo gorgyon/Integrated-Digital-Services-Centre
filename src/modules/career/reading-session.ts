@@ -3,7 +3,15 @@ import { ReadingError } from './reading-rules';
 export const PAGE_READING_TIMEOUT_MS = 60_000;
 /** Retrying a few hard pages (often sideways scans) gets more time per page. */
 export const RETRY_PAGE_TIMEOUT_MS = 180_000;
-export type PageOutcome = { page: number; status: 'read' | 'uncertain' | 'skipped' };
+export type UnreadReason = 'slow_scan' | 'sideways' | 'unclear' | 'error';
+export type PageOutcome = { page: number; status: 'read' | 'uncertain' | 'skipped'; reason?: UnreadReason };
+export const unreadReasons: Record<UnreadReason, string> = {
+  slow_scan: 'This scanned page took too long to read. That usually means it is sideways, upside down, photographed at an angle or low quality.',
+  sideways: 'This page appears to be sideways or upside down, so its text could not be read clearly.',
+  unclear: 'The text on this scanned page is too faint, blurry or small to read reliably.',
+  error: 'This page could not be opened for reading.',
+};
+export const READING_TIP = 'Tip: Scan academic transcripts and certificates separately, one document per upload, with every page upright, flat, well lit and in focus. Then upload the new file and choose Read document.';
 export type ReadingProgress = {
   page: number; total: number; completed: number; percent: number;
   phase: 'opening' | 'text' | 'ocr' | 'saving'; message: string;
@@ -43,6 +51,8 @@ export function readingSummary(outcomes: PageOutcome[], total: number, stopped: 
   if (uncertain.length) notes.push(`Unclear text on pages ${uncertain.join(', ')}. Check the original; no suggestions were generated from these pages.`);
   if (skipped.length) notes.push(`Pages ${skipped.join(', ')} could not be read within the page time limit or encountered an error.`);
   if (stopped) notes.push(`Reading stopped early. ${total - outcomes.length} pages not attempted.`);
+  for (const o of outcomes) if (o.status !== 'read') notes.push(`Page ${o.page}: ${unreadReasons[o.reason ?? (o.status === 'skipped' ? 'slow_scan' : 'unclear')]}`);
+  if (outcomes.some(o => o.status !== 'read')) notes.push(READING_TIP);
   return notes.join('\n');
 }
 
@@ -76,4 +86,21 @@ export function mergeRetriedText(savedText: string, retried: number[], newBlocks
     outcomes.push({ page: n, status: before.includes(n) ? (block ? 'uncertain' : 'skipped') : 'read' });
   }
   return { outcomes, text: `${readingSummary(outcomes, total, false)}\n\n${parts.join('\n\n')}` };
+}
+
+export type PageInfo = { page: number; label: string | undefined; status: 'read' | 'uncertain' | 'skipped'; reason: string | undefined };
+/** Per-page view of a saved reading: label, status and why a page was not read. */
+export function pageOverview(savedText: string) {
+  const { total, pages: unread } = unreadPages(savedText);
+  const summary = savedText.split('\n\n')[0] ?? '';
+  const blocks = splitPageBlocks(savedText);
+  const reasons = new Map([...summary.matchAll(/^Page (\d+): (.+)$/gm)].map(m => [Number(m[1]), m[2] ?? '']));
+  const pages: PageInfo[] = [];
+  for (let n = 1; n <= total; n++) {
+    const block = blocks.get(n);
+    const status = !unread.includes(n) ? 'read' : block ? 'uncertain' : 'skipped';
+    pages.push({ page: n, label: /^Page \d+ — (.+)$/m.exec(block ?? '')?.[1], status,
+      reason: status === 'read' ? undefined : reasons.get(n) ?? unreadReasons[status === 'skipped' ? 'slow_scan' : 'unclear'] });
+  }
+  return { total, pages, headline: summary.split('\n')[0] ?? '' };
 }

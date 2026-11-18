@@ -4,10 +4,10 @@ import { usablePdfText, withPageDeadline, readingSummary } from './reading-sessi
 import type { PageOutcome, ReadingProgress } from './reading-session';
 import type { Worker } from 'tesseract.js';
 
-type Page = { page: number; text: string; ocr: boolean; confidence?: number };
+type Page = { page: number; text: string; ocr: boolean; confidence?: number; rotated?: boolean };
 /** Loaded only by an explicit applicant action. OCR stays in this browser. */
 export async function readDocument(bytes: Uint8Array, mime: string, progress: (message: string) => void,
-  options: { signal?: AbortSignal; onProgress?: (value: ReadingProgress) => void; pages?: number[]; pageTimeoutMs?: number } = {}) {
+  options: { signal?: AbortSignal; onProgress?: (value: ReadingProgress) => void; pages?: number[]; pageTimeoutMs?: number; onPagePreview?: (page: number, url: string) => void } = {}) {
   validateReadingInput(bytes.byteLength, mime);
   let worker: Worker | undefined;
   let total = 1;
@@ -21,6 +21,13 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
     progress(message);
     options.onProgress?.({ page: current, total: planned(), completed: outcomes.length,
       percent: Math.min(99, Math.round((outcomes.length + fraction) / planned() * 100)), phase, message });
+  }
+  function preview(n: number, source: HTMLCanvasElement) {
+    if (!options.onPagePreview) return;
+    const thumb = document.createElement('canvas'); const scale = 240 / Math.max(1, source.width);
+    thumb.width = 240; thumb.height = Math.ceil(source.height * scale);
+    try { thumb.getContext('2d')?.drawImage(source, 0, 0, thumb.width, thumb.height); options.onPagePreview(n, thumb.toDataURL('image/jpeg', .7)); }
+    finally { thumb.width = 0; thumb.height = 0; }
   }
   function planned() { return options.pages?.filter(n => n <= total).length || total; }
   function terminate() {
@@ -48,6 +55,7 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
     }
     const reader = worker;
     let best = (await reader.recognize(canvas, { rotateAuto: true })).data;
+    let turned = false;
     // Try alternate orientations only for unclear scans, with no repeated crops.
     if (best.confidence < 65) {
       const rotated = document.createElement('canvas');
@@ -62,17 +70,17 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
           ctx.translate(rotated.width / 2, rotated.height / 2); ctx.rotate(angle);
           ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
           const candidate = (await reader.recognize(rotated)).data;
-          if (candidate.confidence > best.confidence) best = candidate;
+          if (candidate.confidence > best.confidence) { best = candidate; turned = true; }
           if (best.confidence >= 65) break;
         }
       } finally { rotated.width = 0; rotated.height = 0; }
     }
-    return { text: best.text, confidence: best.confidence };
+    return { text: best.text, confidence: best.confidence, rotated: turned };
   }
   function record(page: Page) {
     const reliable = page.text.trim().length > 2 && (page.confidence === undefined || page.confidence >= 45);
     pages.push(page);
-    outcomes.push({ page: page.page, status: reliable ? 'read' : 'uncertain' });
+    outcomes.push(reliable ? { page: page.page, status: 'read' } : { page: page.page, status: 'uncertain', reason: page.rotated ? 'sideways' : 'unclear' });
     if (pages.reduce((sum, p) => sum + p.text.length, 0) > 100000) throw new ReadingError('limit');
     report('text', `${outcomes.length} of ${total} pages processed`);
   }
@@ -91,12 +99,17 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
           if (options.pages && !options.pages.includes(n)) continue;
           current = n;
           report('text', `Reading page ${n} of ${total}…`);
-          let abandon = false;
+          let abandon = false; let stage = 'text' as 'text' | 'ocr';
           let render: { cancel: () => void } | undefined;
           try {
             const result = await withPageDeadline(async () => {
               const page = await pdf.getPage(n);
               try {
+                if (options.onPagePreview) {
+                  const small = page.getViewport({ scale: 240 / page.getViewport({ scale: 1 }).width });
+                  const thumb = document.createElement('canvas'); thumb.width = Math.ceil(small.width); thumb.height = Math.ceil(small.height);
+                  try { await page.render({ canvas: thumb, viewport: small }).promise; preview(n, thumb); } catch { /* preview is optional */ } finally { thumb.width = 0; thumb.height = 0; }
+                }
                 const content = await page.getTextContent();
                 let text = ''; let lastY: number | undefined;
                 for (const item of content.items) {
@@ -107,6 +120,7 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
                 }
                 if (usablePdfText(text)) return { page: n, text, ocr: false };
                 if (abandon) throw new ReadingError('interrupted');
+                stage = 'ocr';
                 const base = page.getViewport({ scale: 1 });
                 const viewport = page.getViewport({ scale: Math.min(2, 1800 / Math.max(base.width, base.height)) });
                 const canvas = document.createElement('canvas');
@@ -123,7 +137,7 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
           } catch (error) {
             if (error instanceof ReadingError && error.code === 'limit') throw error;
             if (options.signal?.aborted) break;
-            outcomes.push({ page: n, status: 'skipped' });
+            outcomes.push({ page: n, status: 'skipped', reason: stage === 'ocr' ? 'slow_scan' : 'error' });
             report('text', `Page ${n} needs manual review · continuing…`);
           }
         }
@@ -142,7 +156,7 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
         canvas.width = Math.ceil(bitmap.width * scale); canvas.height = Math.ceil(bitmap.height * scale);
         try {
           const ctx = canvas.getContext('2d'); if (!ctx) throw new ReadingError('unreadable');
-          ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+          ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height); preview(1, canvas);
           record({ page: 1, ...await withPageDeadline(() => ocr(canvas), terminate, options.signal, options.pageTimeoutMs), ocr: true });
         } finally { canvas.width = 0; canvas.height = 0; }
       } finally { bitmap.close(); }

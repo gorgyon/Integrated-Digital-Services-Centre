@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useServerFn } from '@tanstack/react-start';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, FileSearch, LoaderCircle, X } from 'lucide-react';
+import { AlertTriangle, Check, FileSearch, LoaderCircle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { downloadCareerDocument } from '@/lib/career-documents.functions';
@@ -15,7 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import type { ReadingProgress } from '@/modules/career/reading-session';
-import { mergeRetriedText, RETRY_PAGE_TIMEOUT_MS, unreadPages } from '@/modules/career/reading-session';
+import { mergeRetriedText, pageOverview, READING_TIP, RETRY_PAGE_TIMEOUT_MS, unreadPages } from '@/modules/career/reading-session';
+import { renderPageThumbnails } from '@/modules/career/page-previews';
 
 export function DocumentReading({ fileId, name }: { fileId: string; name: string }) {
   const qc = useQueryClient();
@@ -29,6 +30,10 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
   const [open, setOpen] = useState(false);
   const [sourceUrl, setSourceUrl] = useState<string>();
   const [sourceMime, setSourceMime] = useState('');
+  const [thumbs, setThumbs] = useState<Record<number, string>>({});
+  const [livePage, setLivePage] = useState<number>();
+  const sourceBytes = useRef<Uint8Array | undefined>(undefined);
+  const onPagePreview = (page: number, url: string) => { setThumbs(t => ({ ...t, [page]: url })); setLivePage(page); };
   const reading = useQuery({
     queryKey: ['document-reading', fileId],
     queryFn: async () => {
@@ -49,12 +54,13 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
   async function refresh() { await qc.invalidateQueries({ queryKey: ['document-reading', fileId] }); }
   function showSource(base64: string, mime: string) {
     const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    sourceBytes.current = bytes.slice();
     setSourceMime(mime);
     setSourceUrl(URL.createObjectURL(new Blob([bytes], { type: mime })));
     return bytes;
   }
   async function process(restart = false) {
-    setBusy(true); setMessage('Loading private document…'); setElapsed(0); setStopping(false); setReadingProgress(undefined);
+    setBusy(true); setMessage('Loading private document…'); setElapsed(0); setStopping(false); setReadingProgress(undefined); setLivePage(undefined);
     controller.current = new AbortController();
     let token: string | undefined;
     try {
@@ -68,7 +74,7 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
       const file = await download({ data: { fileId } });
       const bytes = showSource(file.base64, file.mimeType);
       const { readDocument } = await import('@/modules/career/read-document');
-      const result = await readDocument(bytes, file.mimeType, setMessage, { signal: controller.current.signal, onProgress: setReadingProgress });
+      const result = await readDocument(bytes, file.mimeType, setMessage, { signal: controller.current.signal, onProgress: setReadingProgress, onPagePreview });
       const { error: saveError } = await supabase.rpc('finish_document_reading', {
         _file: fileId, _token: token, _text: result.text,
         _suggestions: result.suggestions, _method: result.method,
@@ -88,7 +94,7 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
     } finally { setBusy(false); setMessage(''); controller.current = undefined; }
   }
   async function retryPages(pages: number[], savedText: string) {
-    setBusy(true); setMessage('Loading private document…'); setElapsed(0); setStopping(false); setReadingProgress(undefined);
+    setBusy(true); setMessage('Loading private document…'); setElapsed(0); setStopping(false); setReadingProgress(undefined); setLivePage(undefined);
     controller.current = new AbortController();
     let token: string | undefined;
     try {
@@ -99,7 +105,7 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
       const file = await download({ data: { fileId } });
       const bytes = showSource(file.base64, file.mimeType);
       const { readDocument } = await import('@/modules/career/read-document');
-      const result = await readDocument(bytes, file.mimeType, setMessage, { signal: controller.current.signal, onProgress: setReadingProgress, pages, pageTimeoutMs: RETRY_PAGE_TIMEOUT_MS });
+      const result = await readDocument(bytes, file.mimeType, setMessage, { signal: controller.current.signal, onProgress: setReadingProgress, onPagePreview, pages, pageTimeoutMs: RETRY_PAGE_TIMEOUT_MS });
       const merged = mergeRetriedText(savedText, pages, result.blocks, result.outcomes, result.total);
       const { error: saveError } = await supabase.rpc('finish_page_retry', { _file: fileId, _token: token, _text: merged.text, _suggestions: result.suggestions, _method: result.method });
       if (saveError) throw new Error('save');
@@ -126,7 +132,17 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
   const stale = state === 'processing' && reading.data && Date.now() - new Date(reading.data.updated_at).getTime() >= 600000;
   const errorCode = reading.data?.error_code as ReadingErrorCode | null;
   const unread = reading.data && (state === 'review_required' || state === 'completed') ? unreadPages(reading.data.extracted_text).pages : [];
-  const summary = reading.data?.extracted_text.startsWith('Reading summary:') ? reading.data.extracted_text.split('\n\n')[0] : undefined;
+  const overview = reading.data?.extracted_text.startsWith('Reading summary:') ? pageOverview(reading.data.extracted_text) : undefined;
+  const notRead = overview?.pages.filter(p => p.status !== 'read') ?? [];
+  const thumbTotal = overview?.total ?? 0;
+  useEffect(() => {
+    const bytes = sourceBytes.current;
+    if (!open || !sourceUrl || !bytes || busy) return;
+    let live = true;
+    void renderPageThumbnails(bytes, sourceMime, (n, url) => { if (live) setThumbs(t => ({ ...t, [n]: url })); }, n => !!thumbs[n] || n > thumbTotal).catch(() => {});
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sourceUrl, sourceMime, busy, thumbTotal]);
   return <div className="w-full min-w-0 border-t border-border pt-3">
     <div className="flex flex-wrap items-center gap-2">
       <Badge variant="secondary">{busy ? 'Reading' : states[state]}</Badge>
@@ -145,6 +161,10 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
     {reading.isError && <p role="alert" className="mt-2 text-sm text-destructive">Could not load the reading status. <Button size="sm" variant="link" onClick={refresh}>Try again</Button></p>}
     {busy && <div className="mt-3 space-y-2">
       <div className="flex items-center justify-between gap-2 text-sm"><span role="status">{stopping ? 'Stopping and keeping readable results…' : message}</span><span className="shrink-0 text-muted-foreground">{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}</span></div>
+      {livePage && thumbs[livePage] && <div className="flex items-center gap-3">
+        <img src={thumbs[livePage]} alt={`Preview of page ${livePage} being read`} className="w-20 shrink-0 rounded-md border border-border" />
+        <p className="text-sm font-medium">Now reading page {livePage}{readingProgress ? ` of ${readingProgress.total}` : ''}</p>
+      </div>}
       <Progress value={readingProgress?.percent ?? 0} aria-label="Document reading progress" />
       {readingProgress && <p className="text-xs text-muted-foreground">{readingProgress.completed} of {readingProgress.total} pages processed</p>}
       <Button size="sm" variant="outline" disabled={stopping || readingProgress?.phase === 'saving'} onClick={() => { setStopping(true); controller.current?.abort(); }}><X aria-hidden="true" />Stop reading</Button>
@@ -153,31 +173,45 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
     {state === 'failed' && errorCode && !busy && <p role="alert" className="mt-2 text-sm text-destructive">{readingErrors[errorCode] ?? readingErrors.unreadable}</p>}
     {open && reading.data && (state === 'review_required' || state === 'completed') && <div className="mt-4 grid min-w-0 gap-5">
       <h3 className="font-semibold">Review — {name}</h3>
-      {summary && <p role="status" className="whitespace-pre-line text-sm text-muted-foreground">{summary}</p>}
-      <div className="grid min-w-0 gap-4 md:grid-cols-2">
-        <div className="min-w-0">
-          <h4 className="mb-2 text-sm font-medium">Source document</h4>
-          {sourceUrl && <>
-            {sourceMime === 'application/pdf'
-              ? <iframe title={`Source document: ${name}`} src={sourceUrl} className="h-80 w-full rounded-md border border-border" />
-              : <img src={sourceUrl} alt={`Source document: ${name}`} className="max-h-80 w-full rounded-md border border-border object-contain" />}
-            <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-sm text-primary underline">Open source document</a>
-          </>}
-          <details className="mt-3">
-            <summary className="cursor-pointer text-sm font-medium">Extracted text (identity details withheld on new readings)</summary>
-            <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">{reading.data.extracted_text}</pre>
-          </details>
-        </div>
-        <div className="min-w-0 space-y-4">
-          <p className="text-sm text-muted-foreground">Check each suggestion against your document. Accepted entries are saved as drafts, not confirmed profile information.</p>
-          {suggestions.length === 0 && <p className="text-sm text-muted-foreground">Text was read, but no profile entries could be identified reliably. You can enter them in <Link to="/profile" className="text-primary underline">My career profile</Link>.</p>}
-          {suggestions.map((suggestion, index) => <SuggestionReview key={`${fileId}-${index}`} suggestion={suggestion} index={index} fileId={fileId} refresh={refresh} />)}
+      {overview && <p role="status" className="text-sm text-muted-foreground">{overview.headline}</p>}
+      {notRead.length > 0 && <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+        <p className="flex items-center gap-2 font-medium text-destructive"><AlertTriangle className="size-4 shrink-0" aria-hidden="true" />{notRead.length === 1 ? `Page ${notRead[0]?.page} could not be read` : `Pages ${notRead.map(p => p.page).join(', ')} could not be read`}</p>
+        <ul className="mt-2 space-y-1">{notRead.map(p => <li key={p.page}><span className="font-medium">Page {p.page}:</span> {p.reason}</li>)}</ul>
+        <p className="mt-2 text-muted-foreground">{READING_TIP.replace(/^Tip: /, 'What to do: ')}</p>
+      </div>}
+      <p className="text-sm text-muted-foreground">Check each suggestion against its page. Accepted entries are saved as drafts, not confirmed profile information.</p>
+      {overview ? <div className="grid min-w-0 gap-3">
+        {overview.pages.map(p => {
+          const items = suggestions.map((s, index) => ({ s, index })).filter(({ s }) => s.page === p.page);
+          const identity = p.label === 'Identity document';
+          return <section key={p.page} aria-label={`Page ${p.page}`} className="min-w-0 rounded-md border border-border p-3">
+            <div className="flex gap-3">
+              {thumbs[p.page] ?? (p.page === 1 && sourceMime !== 'application/pdf' ? sourceUrl : undefined)
+                ? <img src={thumbs[p.page] ?? sourceUrl} alt={`Page ${p.page} preview`} className={`w-20 shrink-0 self-start rounded border border-border ${identity ? 'blur-sm' : ''}`} />
+                : <div className="flex h-24 w-20 shrink-0 items-center justify-center rounded border border-border bg-muted text-xs text-muted-foreground">Page {p.page}</div>}
+              <div className="min-w-0 space-y-1">
+                <p className="font-medium">Page {p.page}{p.label ? ` · ${p.label}` : ''}</p>
+                <Badge variant={p.status === 'read' ? 'secondary' : 'destructive'}>{p.status === 'read' ? 'Read' : p.status === 'uncertain' ? 'Unclear' : 'Not read'}</Badge>
+                {p.reason && <p className="text-xs text-muted-foreground">{p.reason}</p>}
+                <p className="text-xs text-muted-foreground">{identity ? 'Identity details are never added to your profile.' : items.length ? `${items.length} suggestion${items.length === 1 ? '' : 's'} from this page` : p.status === 'read' ? 'No profile entries found on this page.' : 'No suggestions from this page.'}</p>
+              </div>
+            </div>
+            {items.length > 0 && <div className="mt-3 space-y-4">{items.map(({ s, index }) => <SuggestionReview key={`${fileId}-${index}`} suggestion={s} index={index} fileId={fileId} refresh={refresh} />)}</div>}
+          </section>;
+        })}
+      </div> : <div className="min-w-0 space-y-4">{suggestions.map((suggestion, index) => <SuggestionReview key={`${fileId}-${index}`} suggestion={suggestion} index={index} fileId={fileId} refresh={refresh} />)}</div>}
+      {suggestions.length === 0 && <p className="text-sm text-muted-foreground">Text was read, but no profile entries could be identified reliably. You can enter them in <Link to="/profile" className="text-primary underline">My career profile</Link>.</p>}
+      {sourceUrl && <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">Open the full source document</a>}
+      <details>
+        <summary className="cursor-pointer text-sm font-medium">Extracted text (identity details withheld)</summary>
+        <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">{reading.data.extracted_text}</pre>
+      </details>
+      <div className="space-y-3">
           {state === 'review_required' && <Button disabled={suggestions.some(s => s.status === 'pending')} onClick={async () => {
             const { error } = await supabase.rpc('complete_document_review', { _file: fileId });
             if (error) toast.error('Please review every suggestion first.'); else { await refresh(); toast.success('Document review completed.'); }
           }}><Check aria-hidden="true" />Finish document review</Button>}
           <Link to="/profile" className="block text-sm font-medium text-primary underline">Review and confirm profile drafts</Link>
-        </div>
       </div>
     </div>}
   </div>;

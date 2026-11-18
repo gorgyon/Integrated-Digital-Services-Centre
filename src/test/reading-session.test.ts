@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PAGE_READING_TIMEOUT_MS, usablePdfText, withPageDeadline, readingSummary, unreadPages, mergeRetriedText } from '@/modules/career/reading-session';
+import { PAGE_READING_TIMEOUT_MS, usablePdfText, withPageDeadline, readingSummary, unreadPages, mergeRetriedText, pageOverview } from '@/modules/career/reading-session';
 
 afterEach(() => vi.useRealTimers());
 describe('bounded private document reading', () => {
@@ -34,5 +34,13 @@ describe('bounded private document reading', () => {
     expect(merged.text).toContain('5 of 7 pages read reliably');
     expect(merged.text).toContain('text 1'); expect(merged.text).toContain('text 7'); expect(merged.text).toContain('modules');
     expect(unreadPages(merged.text).pages).toEqual([5, 6]);
+  });
+  it('explains why each page was not read and recommends scanning transcripts separately', () => {
+    const text = `${readingSummary([{ page: 1, status: 'read' }, { page: 2, status: 'skipped', reason: 'slow_scan' }, { page: 3, status: 'uncertain', reason: 'sideways' }], 3, false)}\n\nPage 1 — CV\nx\n\nPage 3 — Academic transcript\ny`;
+    const o = pageOverview(text);
+    expect(o.pages.map(p => [p.page, p.label, p.status])).toEqual([[1, 'CV', 'read'], [2, undefined, 'skipped'], [3, 'Academic transcript', 'uncertain']]);
+    expect(o.pages[1]?.reason).toMatch(/sideways, upside down/); expect(o.pages[2]?.reason).toMatch(/sideways or upside down/);
+    expect(text).toMatch(/Scan academic transcripts and certificates separately/);
+    expect(unreadPages(text).pages).toEqual([2, 3]);
   });
 });
