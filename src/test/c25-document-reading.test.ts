@@ -207,5 +207,15 @@ describe('designed CV pages without readable headings', () => {
     const p = { page: 2, text: 'NOTICE OF CHANGE OF ADDRESS\nI.D. No. 900101 5009 087', ocr: true };
     expect(classifyPage(p.text)).toBe('identity');
     expect(privatePageText({ ...p, text: 'Curriculum vitae\nID No 900101 5009 087' })).not.toMatch(/5009/);
+    const matric = 'Republic of South Africa\nNational Senior Certificate\nIdentity number 900101 5009 087';
+    expect(classifyPage(matric)).toBe('matric'); expect(privatePageText({ page: 3, text: matric, ocr: true })).not.toMatch(/5009/);
+  });
+  it('reads matric certificate marks and ignores certificate wording', () => {
+    const text = ['REPUBLIC OF SOUTH AFRICA A', ') National Senior Certificate dq', 'hy Subject % level 4', 'Sepedi Home Language 74 6 | be', '7 Mathematics 43 3 i', 'Py Geography 60 5 | io',
+      'E: admission to bachelor\'s degree, diploma or higher certificate study as gazetted for admission to higher | A', 'S With effect from December 2015 A'].join('\n');
+    const found = structuredSuggestions([{ page: 3, text, ocr: true }]);
+    expect(found.filter(s => s.kind === 'result').map(s => s.data)).toEqual([
+      { subject: 'Sepedi Home Language', grade: '74% (level 6)', year: '2015' }, { subject: 'Mathematics', grade: '43% (level 3)', year: '2015' }, { subject: 'Geography', grade: '60% (level 5)', year: '2015' }]);
+    expect(found.filter(s => s.kind === 'qualification').map(s => s.data['title'])).toEqual(['National Senior Certificate']);
   });
 });

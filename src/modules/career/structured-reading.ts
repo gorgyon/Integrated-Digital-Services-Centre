@@ -32,7 +32,9 @@ function cvScore(text: string) {
 export function classifyPage(raw: string): DocumentType {
   const text = fixOcr(raw); const cv = cvScore(text);
   // Identity takes priority: never interpret security text on IDs as education.
-  if (identity.test(text) && cv < 3) return 'identity';
+  // Certificates often print the holder's ID number: they stay certificates (numbers are still withheld).
+  const certificate = /\b(?:national senior certificate|senior certificate|diploma|degree|bachelor|academic record|statement of results|transcript)\b/i.test(text);
+  if (identity.test(text) && cv < 3 && !certificate) return 'identity';
   if (/\b(?:academic (?:record|transcript|results)|transcript|statement of results)\b/i.test(text)) return 'transcript';
   if (/\b(?:curriculum vitae|resume|résumé|work experience|employment history|professional experience)\b/i.test(text) || /\beducation\b/i.test(text) && /\bskills\b/i.test(text)
     || cv >= 3 && !/\b(?:awarded to|having complied|hereby certif)/i.test(text)) return 'cv';
@@ -86,9 +88,16 @@ export function structuredSuggestions(pages: ReadingPage[]): Suggestion[] {
       const nextHeading = heading(line);
       if (nextHeading) { section = nextHeading === 'ignore' ? undefined : nextHeading; continue; }
       if (boilerplate.test(line) || /\[identity|https?:|@/.test(line)) continue;
+      // Matric certificate rows: subject, percentage and achievement level (1-7), with OCR edge noise removed.
+      const matricRow = type === 'matric' ? line.replace(/^\S{1,2}\s+/, '').match(/^([A-Z][a-z]+(?: [A-Z][a-z]+){0,4})\s+(\d{1,3})\s+([1-7])\b/) : null;
+      if (matricRow && Number(matricRow[2]) <= 100) {
+        const data: Record<string, string> = { subject: matricRow[1] ?? '', grade: `${matricRow[2]}% (level ${matricRow[3]})` };
+        const year = yearFrom(lines.filter(l => /with effect from|examination/i.test(l)).join(' ')); if (year) data['year'] = year;
+        add('result', data, line, page); continue;
+      }
       // Only explicit subject + mark, never arbitrary percentage sentences.
       const result = line.match(/^([A-Za-z][A-Za-z &()/-]{1,90}?)\s*[:|–-]?\s+(\d{1,3}(?:\.\d+)?\s*%|[A-F][+-]?)(?:\s+(\d{4}))?$/);
-      if (result && !/\b(?:is|was|are|rate|average|total|overall|minimum|achieved|obtained|passed)\b/i.test(result[1] ?? '') && (section === 'result' || type === 'transcript' || type === 'matric')) {
+      if (result && !/^[A-Z ]+$/.test(result[1]?.trim() ?? '') && !/\b(?:is|was|are|rate|average|total|overall|minimum|achieved|obtained|passed)\b/i.test(result[1] ?? '') && (section === 'result' || type === 'transcript' || type === 'matric')) {
         const data: Record<string,string> = { subject: result[1]?.trim() ?? '', grade: result[2] ?? '' };
         const year = result[3] ?? yearFrom(lines.filter(l => /(?:completed|completion|year|examination)/i.test(l)).join(' '));
         if (year) data['year'] = year;
@@ -97,7 +106,7 @@ export function structuredSuggestions(pages: ReadingPage[]): Suggestion[] {
         continue;
       }
       const qualification = line.match(qualificationPattern);
-      if (qualification && !bullets.has(i) && !/^(?:subject|course|module)\s*:/i.test(line)) {
+      if (qualification && !bullets.has(i) && line.split(/\s+/).length <= 12 && !/\b(?:admission|requirements|gazetted|minimum)\b/i.test(line) && !/^(?:subject|course|module)\s*:/i.test(line)) {
         // Group explicit nearby fields, stopping at the next section/qualification.
         const block = [line];
         for (let j = i + 1; j < Math.min(lines.length, i + 5); j++) {
