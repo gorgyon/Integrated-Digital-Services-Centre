@@ -195,7 +195,7 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
                 <p className="font-medium">Page {p.page}{p.label ? ` · ${p.label}` : ''}</p>
                 <Badge variant={p.status === 'read' ? 'secondary' : 'destructive'}>{p.status === 'read' ? 'Read' : p.status === 'uncertain' ? 'Unclear' : 'Not read'}</Badge>
                 {p.angle > 0 && <p className="text-xs text-muted-foreground">This page was sideways or upside down and was turned upright before reading.</p>}
-                {p.reason && <p className="text-xs text-muted-foreground">{p.reason}</p>}
+                {p.reason && <p className="text-xs text-muted-foreground">{p.reason}{p.status === 'uncertain' && items.length ? ' Some rows could still be read — check each one carefully against the page.' : ''}</p>}
                 <p className="text-xs text-muted-foreground">{identity ? 'Identity details are never added to your profile.' : items.length ? `${items.length} suggestion${items.length === 1 ? '' : 's'} from this page` : p.status === 'read' ? 'No profile entries found on this page.' : 'No suggestions from this page.'}</p>
               </div>
             </div>
