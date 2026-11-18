@@ -894,6 +894,7 @@ export type Database = {
         | "result"
         | "skill"
         | "experience"
+        | "personal"
       file_category:
         | "personal"
         | "career"
@@ -1076,6 +1077,7 @@ export const Constants = {
         "result",
         "skill",
         "experience",
+        "personal",
       ],
       file_category: [
         "personal",

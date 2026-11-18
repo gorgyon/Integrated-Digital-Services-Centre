@@ -1,10 +1,31 @@
 import { ReadingError, validateReadingInput, suggestEntries } from './reading-rules';
 import { privatePageText } from './structured-reading';
-import { usablePdfText, withPageDeadline, readingSummary } from './reading-session';
+import { usablePdfText, withPageDeadline, readingSummary, realWords } from './reading-session';
 import type { PageOutcome, ReadingProgress } from './reading-session';
 import type { Worker } from 'tesseract.js';
 
-type Page = { page: number; text: string; ocr: boolean; confidence?: number; rotated?: boolean };
+type Page = { page: number; text: string; ocr: boolean; confidence?: number; rotated?: boolean; angle?: number };
+/** Greyscale and contrast stretch so faint scans are easier to read. */
+function enhance(canvas: HTMLCanvasElement) {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true }); if (!ctx) return;
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height); const d = img.data;
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < d.length; i += 4) { const y = (d[i]! * 299 + d[i + 1]! * 587 + d[i + 2]! * 114) / 1000 | 0; d[i] = y; hist[y]!++; }
+  const n = d.length / 4; let lo = 0, hi = 255, acc = 0;
+  for (; lo < 255 && (acc += hist[lo]!) < n * .02; lo++);
+  acc = 0; for (; hi > 0 && (acc += hist[hi]!) < n * .02; hi--);
+  const range = Math.max(1, hi - lo);
+  for (let i = 0; i < d.length; i += 4) { const v = Math.max(0, Math.min(255, (d[i]! - lo) * 255 / range)); d[i] = d[i + 1] = d[i + 2] = v; }
+  ctx.putImageData(img, 0, 0);
+}
+/** Rotates clockwise by 90, 180 or 270 degrees. */
+function rotateCanvas(source: HTMLCanvasElement, angle: number) {
+  const out = document.createElement('canvas');
+  out.width = angle === 180 ? source.width : source.height; out.height = angle === 180 ? source.height : source.width;
+  const ctx = out.getContext('2d'); if (!ctx) throw new ReadingError('unreadable');
+  ctx.translate(out.width / 2, out.height / 2); ctx.rotate(angle * Math.PI / 180); ctx.drawImage(source, -source.width / 2, -source.height / 2);
+  return out;
+}
 /** Loaded only by an explicit applicant action. OCR stays in this browser. */
 export async function readDocument(bytes: Uint8Array, mime: string, progress: (message: string) => void,
   options: { signal?: AbortSignal; onProgress?: (value: ReadingProgress) => void; pages?: number[]; pageTimeoutMs?: number; onPagePreview?: (page: number, url: string) => void } = {}) {
@@ -54,33 +75,57 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
       worker = created;
     }
     const reader = worker;
-    let best = (await reader.recognize(canvas, { rotateAuto: true })).data;
-    let turned = false;
-    // Try alternate orientations only for unclear scans, with no repeated crops.
-    if (best.confidence < 65) {
-      const rotated = document.createElement('canvas');
+    // Turn the page upright first: a quick low-resolution check of each orientation, then one full read.
+    enhance(canvas);
+    const found = await uprightAngle(reader, canvas);
+    const angle = found.angle;
+    // Already read at full size the right way up: no second pass needed.
+    if (found.data) return { text: found.data.text, confidence: found.data.confidence, rotated: angle !== 0, angle };
+    const upright = angle ? rotateCanvas(canvas, angle) : canvas;
+    try {
+      if (angle) report('ocr', `Page ${current} turned upright · reading…`);
+      const best = (await reader.recognize(upright, { rotateAuto: true })).data;
+      return { text: best.text, confidence: best.confidence, rotated: angle !== 0, angle };
+    } finally { if (upright !== canvas) { upright.width = 0; upright.height = 0; } }
+  }
+  async function uprightAngle(reader: Worker, canvas: HTMLCanvasElement) {
+    const scale = Math.min(1, 1000 / Math.max(canvas.width, canvas.height));
+    const probe = document.createElement('canvas');
+    probe.width = Math.ceil(canvas.width * scale); probe.height = Math.ceil(canvas.height * scale);
+    probe.getContext('2d')?.drawImage(canvas, 0, 0, probe.width, probe.height);
+    let best: { angle: number; score: number; data?: { text: string; confidence: number } } = { angle: 0, score: -1 };
+    try {
+      for (const angle of [0, 90, 270, 180]) {
+        if (options.signal?.aborted || worker !== reader) throw new ReadingError('interrupted');
+        report('ocr', `Checking which way up page ${current} is…`);
+        const view = angle ? rotateCanvas(probe, angle) : probe;
+        try {
+          const { data } = await reader.recognize(view);
+          // Real words decide: upside-down or sideways text gives gibberish, even when confidence looks high.
+          const score = realWords(data.text) * 5 + data.confidence / 10;
+          if (score > best.score) best = { angle, score };
+          if (angle === 0 && realWords(data.text) >= 12) break;
+        } finally { if (view !== probe) { view.width = 0; view.height = 0; } }
+      }
+    } finally { probe.width = 0; probe.height = 0; }
+    // Small, faint print can be unreadable in the quick check: check the sideways turns again at full size.
+    if (best.score < 15) for (const angle of [90, 270]) {
+      if (options.signal?.aborted || worker !== reader) throw new ReadingError('interrupted');
+      report('ocr', `Looking closer at which way up page ${current} is…`);
+      const view = rotateCanvas(canvas, angle);
       try {
-        for (const angle of [Math.PI / 2, -Math.PI / 2, Math.PI]) {
-          if (options.signal?.aborted || worker !== reader) throw new ReadingError('interrupted');
-          report('ocr', `Checking scan orientation · page ${current} of ${total}…`);
-          rotated.width = angle === Math.PI ? canvas.width : canvas.height;
-          rotated.height = angle === Math.PI ? canvas.height : canvas.width;
-          const ctx = rotated.getContext('2d');
-          if (!ctx) throw new ReadingError('unreadable');
-          ctx.translate(rotated.width / 2, rotated.height / 2); ctx.rotate(angle);
-          ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
-          const candidate = (await reader.recognize(rotated)).data;
-          if (candidate.confidence > best.confidence) { best = candidate; turned = true; }
-          if (best.confidence >= 65) break;
-        }
-      } finally { rotated.width = 0; rotated.height = 0; }
+        const { data } = await reader.recognize(view);
+        const score = realWords(data.text) * 5 + data.confidence / 10;
+        if (score > best.score) best = { angle, score, data };
+      } finally { view.width = 0; view.height = 0; }
     }
-    return { text: best.text, confidence: best.confidence, rotated: turned };
+    return best;
   }
   function record(page: Page) {
     const reliable = page.text.trim().length > 2 && (page.confidence === undefined || page.confidence >= 45);
     pages.push(page);
-    outcomes.push(reliable ? { page: page.page, status: 'read' } : { page: page.page, status: 'uncertain', reason: page.rotated ? 'sideways' : 'unclear' });
+    const turned = page.angle ? { angle: page.angle } : {};
+    outcomes.push(reliable ? { page: page.page, status: 'read', ...turned } : { page: page.page, status: 'uncertain', reason: 'unclear', ...turned });
     if (pages.reduce((sum, p) => sum + p.text.length, 0) > 100000) throw new ReadingError('limit');
     report('text', `${outcomes.length} of ${total} pages processed`);
   }
@@ -163,11 +208,11 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
     }
     if (!pages.some(p => p.text.trim().length > 2)) throw new ReadingError(options.signal?.aborted ? 'interrupted' : 'unreadable');
     const summary = readingSummary(outcomes, options.pages ? planned() : total, options.signal?.aborted === true);
-    const reliable = pages.filter(p => outcomes.some(o => o.page === p.page && o.status === 'read'));
     const text = `${summary}\n\n${pages.map(privatePageText).join('\n\n')}`;
     if (text.length > 100000) throw new ReadingError('limit');
     report('saving', 'Saving private results for review…');
-    return { text, total, blocks: new Map(pages.map(p => [p.page, privatePageText(p)])), suggestions: suggestEntries(reliable), pages, outcomes, summary,
+    const unclear = new Set(outcomes.filter(o => o.status === 'uncertain').map(o => o.page));
+    return { text, total, blocks: new Map(pages.map(p => [p.page, privatePageText(p)])), suggestions: suggestEntries(pages, unclear), pages, outcomes, summary,
       partial: outcomes.some(p => p.status !== 'read') || outcomes.length < planned(),
       method: pages.every(p => p.ocr) ? 'ocr' : pages.some(p => p.ocr) ? 'mixed' : 'pdf_text' };
   } finally { active = false; terminate(); }

@@ -6,9 +6,8 @@ import { AlertTriangle, Check, FileSearch, LoaderCircle, X } from 'lucide-react'
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { downloadCareerDocument } from '@/lib/career-documents.functions';
-import { readingErrors, readingFields, ReadingError } from '@/modules/career/reading-rules';
-import type { ReadingErrorCode, Suggestion } from '@/modules/career/reading-rules';
-import { documentLabels } from '@/modules/career/structured-reading';
+import { kindLabels, readingErrors, readingFields, ReadingError } from '@/modules/career/reading-rules';
+import type { ReadingErrorCode, Suggestion, SuggestionKind } from '@/modules/career/reading-rules';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -187,16 +186,20 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
           return <section key={p.page} aria-label={`Page ${p.page}`} className="min-w-0 rounded-md border border-border p-3">
             <div className="flex gap-3">
               {thumbs[p.page] ?? (p.page === 1 && sourceMime !== 'application/pdf' ? sourceUrl : undefined)
-                ? <img src={thumbs[p.page] ?? sourceUrl} alt={`Page ${p.page} preview`} className={`w-20 shrink-0 self-start rounded border border-border ${identity ? 'blur-sm' : ''}`} />
+                ? <div className="flex h-24 w-20 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-muted">
+                    <img src={thumbs[p.page] ?? sourceUrl} alt={`Page ${p.page} preview${p.angle ? ', shown upright' : ''}`} style={p.angle ? { transform: `rotate(${p.angle}deg)` } : undefined}
+                      className={`max-h-full max-w-full object-contain ${p.angle === 90 || p.angle === 270 ? 'scale-75' : ''} ${identity ? 'blur-sm' : ''}`} />
+                  </div>
                 : <div className="flex h-24 w-20 shrink-0 items-center justify-center rounded border border-border bg-muted text-xs text-muted-foreground">Page {p.page}</div>}
               <div className="min-w-0 space-y-1">
                 <p className="font-medium">Page {p.page}{p.label ? ` · ${p.label}` : ''}</p>
                 <Badge variant={p.status === 'read' ? 'secondary' : 'destructive'}>{p.status === 'read' ? 'Read' : p.status === 'uncertain' ? 'Unclear' : 'Not read'}</Badge>
+                {p.angle > 0 && <p className="text-xs text-muted-foreground">This page was sideways or upside down and was turned upright before reading.</p>}
                 {p.reason && <p className="text-xs text-muted-foreground">{p.reason}</p>}
                 <p className="text-xs text-muted-foreground">{identity ? 'Identity details are never added to your profile.' : items.length ? `${items.length} suggestion${items.length === 1 ? '' : 's'} from this page` : p.status === 'read' ? 'No profile entries found on this page.' : 'No suggestions from this page.'}</p>
               </div>
             </div>
-            {items.length > 0 && <div className="mt-3 space-y-4">{items.map(({ s, index }) => <SuggestionReview key={`${fileId}-${index}`} suggestion={s} index={index} fileId={fileId} refresh={refresh} />)}</div>}
+            {items.length > 0 && <PageSuggestions items={items} fileId={fileId} refresh={refresh} />}
           </section>;
         })}
       </div> : <div className="min-w-0 space-y-4">{suggestions.map((suggestion, index) => <SuggestionReview key={`${fileId}-${index}`} suggestion={suggestion} index={index} fileId={fileId} refresh={refresh} />)}</div>}
@@ -217,10 +220,40 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
   </div>;
 }
 
+const kindOrder: SuggestionKind[] = ['personal', 'qualification', 'education', 'result', 'experience', 'skill'];
+function PageSuggestions({ items, fileId, refresh }: { items: { s: Suggestion; index: number }[]; fileId: string; refresh: () => Promise<void> }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const pending = items.filter(({ s }) => s.status === 'pending');
+  async function acceptAll() {
+    setBusy(true);
+    try {
+      for (const { s, index } of pending) {
+        const { error } = await supabase.rpc('review_document_suggestion', { _file: fileId, _index: index, _accept: true, _data: s.data });
+        if (error) { toast.error('Some suggestions could not be saved. Please review them one by one.'); break; }
+      }
+      await refresh(); await qc.invalidateQueries({ queryKey: ['career-profile'] });
+      toast.success('Accepted as profile drafts. Anything already in your profile was not added twice.');
+    } finally { setBusy(false); }
+  }
+  return <div className="mt-3 space-y-4">
+    {pending.length > 1 && <Button size="sm" disabled={busy} onClick={acceptAll}><Check aria-hidden="true" />Accept all {pending.length} from this page as drafts</Button>}
+    {kindOrder.map(kind => {
+      const group = items.filter(({ s }) => s.kind === kind);
+      if (!group.length) return null;
+      return <div key={kind} className="space-y-2">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{kindLabels[kind]}{group.length > 1 ? ` (${group.length})` : ''}</h4>
+        {group.map(({ s, index }) => <SuggestionReview key={`${fileId}-${index}`} suggestion={s} index={index} fileId={fileId} refresh={refresh} />)}
+      </div>;
+    })}
+  </div>;
+}
+
 function SuggestionReview({ suggestion, index, fileId, refresh }: { suggestion: Suggestion; index: number; fileId: string; refresh: () => Promise<void> }) {
   const qc = useQueryClient();
   const [data, setData] = useState(suggestion.data);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
   const fields = readingFields[suggestion.kind];
   if (!fields) return null;
   async function isDuplicate() {
@@ -238,18 +271,33 @@ function SuggestionReview({ suggestion, index, fileId, refresh }: { suggestion: 
       toast.success(!accept ? 'Suggestion rejected.' : duplicate ? 'Already in your profile — no duplicate added.' : 'Accepted as a profile draft.');
     } finally { setBusy(false); }
   }
-  return <section className="min-w-0 border-b border-border pb-4">
-    <div className="flex flex-wrap items-center gap-2 text-sm font-medium"><span className="capitalize">{suggestion.kind === 'result' ? 'Academic results' : suggestion.kind === 'experience' ? 'Employment history' : suggestion.kind}</span><span className="text-xs text-muted-foreground">Page {suggestion.page}{suggestion.documentType ? ` · ${documentLabels[suggestion.documentType]}` : ''}</span><Badge variant="outline">{suggestion.status === 'pending' ? 'Check wording and missing details' : suggestion.status === 'accepted' ? 'Accepted as draft' : 'Rejected'}</Badge></div>
-    <blockquote className="my-2 break-words border-l-2 border-border pl-3 text-xs text-muted-foreground">{suggestion.source}</blockquote>
+  const [main, ...rest] = fields;
+  const details = rest.filter(f => data[f.key]);
+  const missing = rest.filter(f => !data[f.key]).map(f => f.label.toLowerCase());
+  return <div className={`min-w-0 rounded-md border border-border p-3 ${suggestion.status !== 'pending' ? 'bg-muted/50' : ''}`}>
+    <div className="flex flex-wrap items-start justify-between gap-2">
+      <div className="min-w-0">
+        <p className="break-words font-medium">{data[main?.key ?? ''] || '—'}</p>
+        {details.length > 0 && <dl className="mt-1 grid gap-x-3 gap-y-0.5 text-sm sm:grid-cols-[auto_1fr]">
+          {details.map(f => <div key={f.key} className="contents"><dt className="text-muted-foreground">{f.label}</dt><dd className="break-words">{data[f.key]}</dd></div>)}
+        </dl>}
+        {suggestion.status === 'pending' && missing.length > 0 && !editing && <p className="mt-1 text-xs text-muted-foreground">Not found on the page: {missing.join(', ')}. Add them with Edit if you know them.</p>}
+      </div>
+      {suggestion.status !== 'pending' && <Badge variant="outline">{suggestion.status === 'accepted' ? 'Accepted as draft' : 'Rejected'}</Badge>}
+    </div>
     {suggestion.status === 'pending' && <>
-      <div className="grid gap-2">{fields.map(field => <div key={field.key} className="grid gap-1">
+      {editing && <div className="mt-3 grid gap-2">{fields.map(field => <div key={field.key} className="grid gap-1">
         <Label htmlFor={`${fileId}-${index}-${field.key}`}>{field.label}</Label>
         <Input id={`${fileId}-${index}-${field.key}`} value={data[field.key] ?? ''} maxLength={200} onChange={e => setData({ ...data, [field.key]: e.target.value })} />
-      </div>)}</div>
+      </div>)}</div>}
+      <details className="mt-2"><summary className="cursor-pointer text-xs text-muted-foreground">Where this came from</summary>
+        <blockquote className="mt-1 whitespace-pre-line break-words border-l-2 border-border pl-3 text-xs text-muted-foreground">{suggestion.source}</blockquote>
+      </details>
       <div className="mt-3 flex flex-wrap gap-2">
-        <Button size="sm" disabled={busy || !data[fields[0]?.key ?? '']?.trim()} onClick={() => decide(true)}><Check aria-hidden="true" />Accept as draft</Button>
+        <Button size="sm" disabled={busy || !data[main?.key ?? '']?.trim()} onClick={() => decide(true)}><Check aria-hidden="true" />Accept</Button>
+        <Button size="sm" variant="outline" disabled={busy} onClick={() => setEditing(v => !v)}>{editing ? 'Done editing' : 'Edit'}</Button>
         <Button size="sm" variant="outline" disabled={busy} onClick={() => decide(false)}><X aria-hidden="true" />Reject</Button>
       </div>
     </>}
-  </section>;
+  </div>;
 }

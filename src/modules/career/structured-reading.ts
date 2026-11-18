@@ -16,7 +16,10 @@ const yearFrom = (s: string) => {
 const clean = (s: string) => s.trim().replace(/^[•●\-*.]\s*/, '').replace(/\s+/g, ' ');
 const bulletLine = (s: string) => /^\s*[•●*.\-]\s*[A-Za-z]/.test(s);
 // 13-digit SA ID numbers, also when OCR splits them with spaces or dashes.
-const safeLine = (s: string) => s.replace(/\b\d(?:[ -]?\d){12}\b/g, '[identity number withheld]')
+const safeLine = (s: string) => (/\b[iIlT1][dco]\w{2,5}[il1t]y\b/i.test(s) && /\d{5,}/.test(s) ? '[identity detail withheld]' : s)
+  // Long digit runs (even with OCR letter swaps) are never kept: they may be ID numbers.
+  .replace(/\b(?=[\dA-Z%]*\d[\dA-Z%]*\d)(?:[\dOIlSYZB%]*\d){9,}[\dOIlSYZB%]*\b/g, '[number withheld]')
+  .replace(/\b\d(?:[ -]?\d){12}\b/g, '[identity number withheld]')
   .replace(/\b(?:I\.?\s*D\.?|identity|passport)\s*(?:number|no\.?)\s*[:#-]?\s*[\w -]*\d[\w -]*/gi, '[identity detail withheld]');
 /** Fixes common, unambiguous OCR letter swaps (l/I) and split words. */
 export function fixOcr(s: string) {
@@ -35,7 +38,7 @@ export function classifyPage(raw: string): DocumentType {
   // Certificates often print the holder's ID number: they stay certificates (numbers are still withheld).
   const certificate = /\b(?:national senior certificate|senior certificate|diploma|degree|bachelor|academic record|statement of results|transcript)\b/i.test(text);
   if (identity.test(text) && cv < 3 && !certificate) return 'identity';
-  if (/\b(?:academic (?:record|transcript|results)|transcript|statement of results)\b/i.test(text)) return 'transcript';
+  if (/\b(?:academic (?:record|transcript|results)|transcript|statement of results)\b/i.test(text) || /\bacademic\s+tra[a-z]{4,8}\b/i.test(text)) return 'transcript';
   if (/\b(?:curriculum vitae|resume|résumé|work experience|employment history|professional experience)\b/i.test(text) || /\beducation\b/i.test(text) && /\bskills\b/i.test(text)
     || cv >= 3 && !/\b(?:awarded to|having complied|hereby certif)/i.test(text)) return 'cv';
   if (/\b(?:national senior certificate|senior certificate|matric certificate)\b/i.test(text)) return 'matric';
@@ -62,21 +65,32 @@ function labelled(lines: string[], pattern: RegExp): string | undefined {
   for (const line of lines) { const match = line.match(pattern); if (match?.[1]) return match[1].trim().slice(0, 200); }
   return undefined;
 }
-export function structuredSuggestions(pages: ReadingPage[]): Suggestion[] {
+export function structuredSuggestions(pages: ReadingPage[], unclear: Set<number> = new Set()): Suggestion[] {
   const out: Suggestion[] = [];
   let carriedSection: SuggestionKind | undefined;
   const add = (kind: SuggestionKind, data: Record<string, string>, source: string, page: ReadingPage) => {
     if (!Object.values(data).some(Boolean) || out.length >= 100) return;
-    const key = kind === 'qualification' ? 'title' : kind === 'education' ? 'institution' : kind === 'result' ? 'subject' : kind === 'skill' ? 'name' : 'role';
+    const key = kind === 'qualification' ? 'title' : kind === 'education' ? 'institution' : kind === 'result' ? 'subject' : kind === 'skill' ? 'name' : kind === 'personal' ? 'full_name' : 'role';
     const normalize = (s: string | undefined) => (s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
     const qualifiers = kind === 'qualification' ? ['issuer','field','year'] : kind === 'education' ? ['level','field','year'] : kind === 'result' ? ['grade','year'] : kind === 'experience' ? ['employer','period'] : [];
-    const prior = out.find(s => s.kind === kind && normalize(s.data[key]) === normalize(data[key]) && qualifiers.every(k => !s.data[k] || !data[k] || normalize(s.data[k]) === normalize(data[k])));
-    if (prior) return; // Keep first page provenance; never merge uncertain facts across documents/pages.
-    out.push({ kind, data, source: safeLine(source).slice(0, 2000), page: page.page, uncertain: true, status: 'pending', documentType: classifyPage(page.text) });
+    // Results: "English" on a CV and "English First Additional Language" on the certificate are the same subject.
+    const same = (a: string, b: string) => a === b || kind === 'result' && !!a && !!b && (a.startsWith(`${b} `) || b.startsWith(`${a} `));
+    const priorIndex = out.findIndex(s => s.kind === kind && (kind === 'personal' || same(normalize(s.data[key]), normalize(data[key]))) && qualifiers.every(k => !s.data[k] || !data[k] || normalize(s.data[k]) === normalize(data[k])));
+    const prior = out[priorIndex];
+    if (prior) {
+      // Never two entries for one fact: keep whichever states more, and fill gaps for personal details.
+      if (kind === 'personal') { for (const [k, v] of Object.entries(data)) if (v && !prior.data[k]) prior.data[k] = v; return; }
+      const filled = (d: Record<string, string>) => Object.values(d).filter(Boolean).length + (d[key]?.length ?? 0) / 1000;
+      if (filled(data) <= filled(prior.data)) return;
+    }
+    const entry: Suggestion = { kind, data, source: safeLine(source).slice(0, 2000), page: page.page, uncertain: true, status: 'pending', documentType: classifyPage(page.text) };
+    if (prior) out[priorIndex] = entry; else out.push(entry);
   };
   for (const page of pages) {
     const type = classifyPage(page.text);
     if (type === 'identity') { carriedSection = undefined; continue; }
+    if (type === 'transcript') transcriptRows(page, add, out, unclear.has(page.page));
+    if (unclear.has(page.page)) { carriedSection = undefined; continue; }
     const raw = fixOcr(page.text).split(/\r?\n/).filter(s => s.trim() && s.length <= 2000);
     const bullets = new Set(raw.flatMap((l, i) => bulletLine(l) ? [i] : []));
     const lines = raw.map(clean).map(safeLine);
@@ -145,7 +159,11 @@ export function structuredSuggestions(pages: ReadingPage[]): Suggestion[] {
         add('experience', data, line, page);
       }
     }
-    if (type === 'cv') cvLayoutEntries(lines, bullets, page, add, out);
+    if (type === 'cv') {
+      const personal = personalDetails(page.text);
+      if (personal['full_name'] || personal['email'] || personal['phone']) add('personal', personal, Object.values(personal).join(' · '), page);
+      cvLayoutEntries(lines, bullets, page, add, out);
+    }
     carriedSection = type === 'cv' || type === 'supporting' ? section : undefined;
   }
   return out;
@@ -213,4 +231,64 @@ function cvLayoutEntries(lines: string[], bullets: Set<number>, page: ReadingPag
   }
   // Only when the CV had no readable skills list, so explicit skills are never duplicated.
   if (!out.some(s => s.kind === 'skill')) for (const [pattern, name] of skillWords) { const m = text.match(pattern); if (m) add('skill', { name }, m[0], page); }
+}
+
+const hobbyWords = /\b(?:singing|dancing|travel(?:l)?ing|reading|music|sports?|soccer|netball|cooking|gaming|hiking|swimming|writing|drawing|photography|gardening|fashion|movies)\b/gi;
+/** Name, contact details, languages and interests from a CV page. Identity numbers are never included. */
+export function personalDetails(raw: string): Record<string, string> {
+  const lines = fixOcr(raw).split(/\r?\n/).map(clean).filter(Boolean);
+  const data: Record<string, string> = {};
+  const name = lines.slice(0, 6).find(l => /^[A-Z][A-Za-z'-]+(?: [A-Z][A-Za-z'-]+){1,3}$/.test(l) && !/\b(?:curriculum|vitae|resume|university|school|college|solutions|technology|self|employed)\b/i.test(l));
+  if (name) data['full_name'] = titleCase(name);
+  const text = lines.join('\n');
+  const email = text.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/); if (email) data['email'] = email[0];
+  const phone = text.match(/(?:\+27|\b0)[\s-]?\d{2}[\s-]?\d{3}[\s-]?\d{4}\b/); if (phone) data['phone'] = phone[0].replace(/\s+/g, ' ');
+  const location = labelled(lines, /^(?:address|residential address|location|city|town)\s*:\s*(.+)$/i); if (location) data['location'] = location;
+  const languages = labelled(lines, /^languages?(?: spoken)?\s*:\s*(.+)$/i); if (languages) data['languages'] = languages;
+  const hobbies = lines.find(l => (l.match(hobbyWords)?.length ?? 0) >= 2) ?? labelled(lines, /^(?:hobbies|interests)\s*:\s*(.+)$/i);
+  if (hobbies) data['interests'] = hobbies.replace(/^(?:hobbies|interests)\s*:\s*/i, '');
+  for (const k of Object.keys(data)) if (k !== 'phone' && k !== 'email') data[k] = safeLine(data[k] ?? '');
+  return data;
+}
+
+const moduleWords = ['FOUNDATION','ACADEMIC','LANGUAGE','SKILLS','MATHEMATICAL','INFORMATION','SOFTWARE','DEVELOPMENT','PRESENTATION','REPORTING','COMPUTING','FUNDAMENTALS','SYSTEMS','SYSTEM','TECHNICAL','PROGRAMMING','AND','FOR','IN','DESIGN','DATABASE','NETWORK','NETWORKS','BUSINESS','ANALYSIS','PROJECT','MANAGEMENT','ENGINEERING','COMMUNICATION','PRACTICE','WEB','APPLICATIONS','INTERNET','MOBILE','SECURITY','STATISTICS','ACCOUNTING','ECONOMICS','LIFE','PRINCIPLES','INTRODUCTION','EXPERIENTIAL','LEARNING','ETHICS','RESEARCH'];
+function distance(a: string, b: string) {
+  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) { let prev = row[0]!; row[0] = i;
+    for (let j = 1; j <= b.length; j++) { const t = row[j]!; row[j] = Math.min(row[j]! + 1, row[j - 1]! + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = t; } }
+  return row[b.length]!;
+}
+/** Corrects an OCR-damaged word to the closest known module word, or undefined when none is close. */
+function moduleWord(raw: string) {
+  const w = raw.toUpperCase().replace(/[^A-Z]/g, ''); if (w.length < 2) return undefined;
+  let best: string | undefined; let score = Infinity;
+  for (const m of moduleWords) { const d = distance(w, m); if (d < score) { score = d; best = m; } }
+  return score <= (w.length <= 3 ? 0 : w.length <= 5 ? 1 : 2) ? best : undefined;
+}
+const titleWords = (s: string) => s.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase()).replace(/\b(And|For|In|Of)\b/g, w => w.toLowerCase());
+/** Transcript rows: module name, optional code, mark and result. Damaged words are corrected only to known module words. */
+function transcriptRows(page: ReadingPage, add: Add, out: Suggestion[], unclearScan: boolean) {
+  const qualification = out.find(s => s.kind === 'qualification' && /diploma|degree|bachelor/i.test(s.data['title'] ?? ''))?.data['title'];
+  let year: string | undefined;
+  for (const raw of fixOcr(page.text).split(/\r?\n/)) {
+    const line = safeLine(raw.trim());
+    const y = line.match(/^\W*(?:year|[ftdy]ea[rs])\b\W*((?:19|20)\d{2})/i)?.[1]; if (y) { year = y; continue; }
+    const result = /\b(?:p|f|d|b)?a[s5][s5e]\b|\bpa[sy][s5e]?\b|\b[fp]ass\b|\bmss\b/i.test(line) ? 'Pass' : /\b[fp]ail\b/i.test(line) ? 'Fail' : undefined;
+    const distinction = /\b[dbg][il1]?[s5]?t[il1]?n?c?t?[il1]?[o0]n\b|\bd[il1t]s?t[il1]nct|\bdist|\bdtst|bistenct/i.test(line);
+    const tokens = line.split(/\s+/);
+    const words: string[] = []; let i = 0;
+    for (; i < tokens.length && words.length < 8; i++) { const w = moduleWord(tokens[i] ?? ''); if (w) words.push(w); else if (words.length) break; }
+    if (words.filter(w => w.length > 3).length < 2 || words.every(w => ['INFORMATION','TECHNOLOGY','SYSTEMS'].includes(w)) && !result) continue;
+    const code = tokens[i]?.match(/^[1IilT]{1,3}[AB8ab]?$/) ? tokens[i]!.toUpperCase().replace(/[1LT]/g, 'I').replace(/8/g, 'B') : undefined;
+    // The mark is the number straight after the module (and its code); stray numbers elsewhere are ignored.
+    const mark = tokens[code ? i + 1 : i]?.match(/^(\d{2,3})$/)?.[1];
+    const outcome = result ?? (distinction ? 'Pass' : undefined);
+    if (!outcome && !mark) continue;
+    const data: Record<string, string> = { subject: titleWords(words.join(' ')) + (code ? ` ${code}` : '') };
+    const grade = [mark && Number(mark) <= 100 ? `${mark}%` : '', outcome ? (distinction && outcome === 'Pass' ? 'Pass with distinction' : outcome) : ''].filter(Boolean).join(' — ');
+    if (grade) data['grade'] = grade;
+    if (year) data['year'] = year;
+    if (qualification) data['qualification'] = qualification;
+    add('result', data, `${unclearScan ? 'Unclear scan — check this row against the page. ' : ''}${line}`, page);
+  }
 }

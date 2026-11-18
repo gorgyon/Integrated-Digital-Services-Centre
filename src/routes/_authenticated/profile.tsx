@@ -30,13 +30,16 @@ type Entry = Database["public"]["Tables"]["career_profile_entries"]["Row"];
 type Data = Record<string, string>;
 
 const KINDS: { kind: Kind; title: string; fields: { key: string; label: string }[] }[] = [
+  { kind: "personal", title: "Personal and contact details", fields: [
+    { key: "full_name", label: "Full name" }, { key: "phone", label: "Phone" }, { key: "email", label: "Email" },
+    { key: "location", label: "Location or address" }, { key: "languages", label: "Languages" }, { key: "interests", label: "Interests and hobbies" } ] },
   { kind: "education", title: "Education", fields: [
     { key: "institution", label: "School or institution" }, { key: "level", label: "Level (e.g. Grade 12, Diploma)" },
     { key: "field", label: "Field of study" }, { key: "year", label: "Year completed" } ] },
   { kind: "qualification", title: "Qualifications", fields: [
     { key: "title", label: "Qualification" }, { key: "issuer", label: "Issued by" }, { key: "field", label: "Field of study" }, { key: "year", label: "Year" } ] },
   { kind: "result", title: "Academic results", fields: [
-    { key: "subject", label: "Subject" }, { key: "grade", label: "Mark or grade" }, { key: "year", label: "Year" } ] },
+    { key: "subject", label: "Subject or module" }, { key: "grade", label: "Mark or grade" }, { key: "year", label: "Year" }, { key: "qualification", label: "Part of qualification" } ] },
   { kind: "skill", title: "Skills", fields: [
     { key: "name", label: "Skill" }, { key: "level", label: "Level (e.g. Beginner, Advanced)" } ] },
   { kind: "experience", title: "Employment history and experience", fields: [
@@ -86,10 +89,12 @@ function ProfilePage() {
             <CardDescription>These changes are drafts. They are not part of your profile until you confirm them.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            {pending.map((e) => (
+            {KINDS.filter((k) => pending.some((e) => e.kind === k.kind)).map((k) => (
+              <div key={k.kind} className="flex flex-col gap-2">
+                <h3 className="text-sm font-semibold">{k.title} ({pending.filter((e) => e.kind === k.kind).length})</h3>
+            {pending.filter((e) => e.kind === k.kind).map((e) => (
               <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
-                <div>
-                  <Badge variant="secondary" className="mr-2">{KINDS.find((k) => k.kind === e.kind)?.title}</Badge>
+                <div className="min-w-0 break-words">
                   {e.draft_remove ? <span>Remove: {summary(e.kind, asData(e.confirmed_data))}</span> : (
                     <span>
                       {e.confirmed_data ? "Change to: " : "New: "}{summary(e.kind, asData(e.draft_data))}
@@ -100,19 +105,22 @@ function ProfilePage() {
                 <Button size="sm" variant="ghost" onClick={() => run(supabase.rpc("discard_career_draft", { _entry: e.id }), "Draft discarded")}>Discard</Button>
               </div>
             ))}
+              </div>
+            ))}
             <Button onClick={() => run(supabase.rpc("confirm_career_profile"), "Profile confirmed")}>Confirm all changes</Button>
           </CardContent>
         </Card>
       ) : null}
 
-      {KINDS.map(({ kind, title }) => {
+      {KINDS.map(({ kind, title, fields }) => {
         const list = (entries.data ?? []).filter((e) => e.kind === kind);
+        const single = kind === "personal" && list.length > 0;
         const formHere = editing?.kind === kind;
         return (
           <Card key={kind}>
             <CardHeader className="flex flex-row items-center justify-between gap-2">
               <CardTitle className="text-lg">{title}</CardTitle>
-              <Button size="sm" variant="outline" disabled={formHere && !editing?.entry} onClick={() => setEditing({ kind, entry: null })}>Add</Button>
+              <Button size="sm" variant="outline" disabled={(formHere && !editing?.entry) || single} onClick={() => setEditing({ kind, entry: null })}>Add</Button>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               {formHere ? (
@@ -134,11 +142,16 @@ function ProfilePage() {
                 const page = e.draft_data ? e.draft_source_page : e.confirmed_source_page;
                 return (
                   <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                    <span className="min-w-0 break-words">
-                      {isDraft ? <Badge variant="secondary" className="mr-2">{e.draft_remove ? "Removal draft" : "Draft"}</Badge> : null}
-                      {summary(kind, shown)}
-                      {docName(fileId) ? <span className="text-muted-foreground"> · {docName(fileId)}{page ? `, page ${page}` : ""}</span> : null}
-                    </span>
+                    <div className="min-w-0 break-words">
+                      <p className="font-medium">
+                        {isDraft ? <Badge variant="secondary" className="mr-2">{e.draft_remove ? "Removal draft" : "Draft"}</Badge> : null}
+                        {shown[fields[0]?.key ?? ""] || "—"}
+                      </p>
+                      {fields.slice(1).filter((f) => shown[f.key]).map((f) => (
+                        <p key={f.key} className="text-muted-foreground"><span>{f.label}: </span>{shown[f.key]}</p>
+                      ))}
+                      {docName(fileId) ? <p className="text-xs text-muted-foreground">From {docName(fileId)}{page ? `, page ${page}` : ""}</p> : null}
+                    </div>
                     <span className="flex gap-1">
                       {!e.draft_remove ? <Button size="sm" variant="ghost" onClick={() => setEditing({ kind, entry: e })}>Edit</Button> : null}
                       {isDraft
@@ -207,7 +220,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         <div>
           <Link to="/account" className="text-sm text-primary underline-offset-4 hover:underline">← Your account</Link>
           <h1 className="mt-2 text-2xl font-semibold">My career profile</h1>
-          <p className="text-sm text-muted-foreground">Enter your education, qualifications, results and skills. Changes are saved as drafts until you confirm them.</p>
+          <p className="text-sm text-muted-foreground">Enter your personal details, education, qualifications, results, experience and skills. Changes are saved as drafts until you confirm them.</p>
         </div>
         {children}
       </main>

@@ -7,7 +7,7 @@ describe('bounded private document reading', () => {
     expect(usablePdfText('National Senior Certificate awarded by Example Secondary School in 2012')).toBe(true);
     expect(usablePdfText('x 1 2 || ~ 00 l')).toBe(false);
   });
-  it('stops a stalled page at 60 seconds instead of losing the entire document', async () => {
+  it('stops a stalled page at 90 seconds instead of losing the entire document', async () => {
     vi.useFakeTimers(); const stop = vi.fn();
     const result = withPageDeadline(() => new Promise(() => {}), stop);
     const check = expect(result).rejects.toMatchObject({ code: 'interrupted' });
@@ -42,5 +42,11 @@ describe('bounded private document reading', () => {
     expect(o.pages[1]?.reason).toMatch(/sideways, upside down/); expect(o.pages[2]?.reason).toMatch(/sideways or upside down/);
     expect(text).toMatch(/Scan academic transcripts and certificates separately/);
     expect(unreadPages(text).pages).toEqual([2, 3]);
+  });
+  it('remembers which pages were turned upright, also after retrying other pages', () => {
+    const text = `${readingSummary([{ page: 1, status: 'read', angle: 90 }, { page: 2, status: 'skipped' }], 2, false)}\n\nPage 1 — Academic transcript\nx`;
+    expect(pageOverview(text).pages[0]?.angle).toBe(90);
+    const merged = mergeRetriedText(text, [2], new Map(), [{ page: 2, status: 'skipped' }], 2);
+    expect(pageOverview(merged.text).pages[0]?.angle).toBe(90);
   });
 });

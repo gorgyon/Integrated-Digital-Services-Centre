@@ -218,4 +218,27 @@ describe('designed CV pages without readable headings', () => {
       { subject: 'Sepedi Home Language', grade: '74% (level 6)', year: '2015' }, { subject: 'Mathematics', grade: '43% (level 3)', year: '2015' }, { subject: 'Geography', grade: '60% (level 5)', year: '2015' }]);
     expect(found.filter(s => s.kind === 'qualification').map(s => s.data['title'])).toEqual(['National Senior Certificate']);
   });
+  it('keeps one entry per subject: certificate marks replace the plain CV subject', () => {
+    const found = structuredSuggestions([
+      { page: 1, text: 'Curriculum vitae\nWork experience\nNational Senior Certificate\n. English\n. Mathematics', ocr: true },
+      { page: 3, text: 'National Senior Certificate\nEnglish First Additional Language 60 5\nMathematics 43 3\nWith effect from December 2015', ocr: true }]);
+    expect(found.filter(s => s.kind === 'result').map(s => [s.data['subject'], s.data['grade'], s.page])).toEqual([
+      ['English First Additional Language', '60% (level 5)', 3], ['Mathematics', '43% (level 3)', 3]]);
+  });
+  it('collects personal and contact details from a CV without identity numbers', () => {
+    const text = 'JANE DOE\nCurriculum vitae\nPhone: 071 234 5678\njane.doe@example.com\nAddress: Polokwane, Limpopo\nLanguages: English, Sepedi\nID No 900101 5009 087\nSinging, Dancing, Travelling\nWork experience\nClerk at Example Ltd';
+    const personal = structuredSuggestions([{ page: 1, text, ocr: false }]).filter(s => s.kind === 'personal');
+    expect(personal.map(s => s.data)).toEqual([{ full_name: 'Jane Doe', email: 'jane.doe@example.com', phone: '071 234 5678', location: 'Polokwane, Limpopo', languages: 'English, Sepedi', interests: 'Singing, Dancing, Travelling' }]);
+    expect(JSON.stringify(personal)).not.toMatch(/5009/);
+  });
+  it('withholds OCR-garbled identity numbers on transcripts', () => {
+    const text = privatePageText({ page: 6, text: 'Academic transcript\nTdeatity Sushec : Y7T1201786108% uate of Siren\nStudent Number 121707475', ocr: true });
+    expect(text).not.toMatch(/1201786108/);
+  });
+  it('reads transcript module rows from an unclear scan, marked for checking', () => {
+    const text = ['Academic Transcript', 'fear : 2019 NATIONAL DIFLOWA', '3 DEVELOPMENT SOFTWARE ib 78 DASE WITH DTSTINCTION', 'COMPUTING SYSTEMS 18 2 PASS', 'SOUTH AFRICAN POLICE SERVICE'].join('\n');
+    const rows = structuredSuggestions([{ page: 4, text, ocr: true }], new Set([4])).filter(s => s.kind === 'result');
+    expect(rows.map(s => s.data)).toEqual([{ subject: 'Development Software IB', grade: '78% — Pass with distinction', year: '2019' }, { subject: 'Computing Systems IB', grade: 'Pass', year: '2019' }]);
+    expect(rows[0]?.source).toMatch(/^Unclear scan/);
+  });
 });
