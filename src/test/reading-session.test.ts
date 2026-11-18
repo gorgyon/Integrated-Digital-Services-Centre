@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PAGE_READING_TIMEOUT_MS, usablePdfText, withPageDeadline, readingSummary } from '@/modules/career/reading-session';
+import { PAGE_READING_TIMEOUT_MS, usablePdfText, withPageDeadline, readingSummary, unreadPages, mergeRetriedText } from '@/modules/career/reading-session';
 
 afterEach(() => vi.useRealTimers());
 describe('bounded private document reading', () => {
@@ -24,5 +24,15 @@ describe('bounded private document reading', () => {
     const summary = readingSummary([{ page: 1, status: 'read' }, { page: 2, status: 'uncertain' }, { page: 3, status: 'skipped' }], 7, true);
     expect(summary).toContain('1 of 7'); expect(summary).toContain('pages 2');
     expect(summary).toContain('Pages 3'); expect(summary).toContain('4 pages not attempted');
+  });
+  it('finds only the unread pages and keeps earlier pages when they are retried', () => {
+    const saved = 'Reading summary: 4 of 7 pages read reliably.\nPages 4, 5, 6 could not be read within the page time limit or encountered an error.\n\n'
+      + [1, 2, 3, 7].map(n => `Page ${n} — CV\ntext ${n}`).join('\n\n');
+    expect(unreadPages(saved).pages).toEqual([4, 5, 6]);
+    const merged = mergeRetriedText(saved, [4, 5, 6], new Map([[4, 'Page 4 — Transcript\nmodules']]),
+      [{ page: 4, status: 'read' }, { page: 5, status: 'skipped' }, { page: 6, status: 'skipped' }], 7);
+    expect(merged.text).toContain('5 of 7 pages read reliably');
+    expect(merged.text).toContain('text 1'); expect(merged.text).toContain('text 7'); expect(merged.text).toContain('modules');
+    expect(unreadPages(merged.text).pages).toEqual([5, 6]);
   });
 });

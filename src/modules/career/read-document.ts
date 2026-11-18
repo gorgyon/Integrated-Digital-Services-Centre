@@ -7,7 +7,7 @@ import type { Worker } from 'tesseract.js';
 type Page = { page: number; text: string; ocr: boolean; confidence?: number };
 /** Loaded only by an explicit applicant action. OCR stays in this browser. */
 export async function readDocument(bytes: Uint8Array, mime: string, progress: (message: string) => void,
-  options: { signal?: AbortSignal; onProgress?: (value: ReadingProgress) => void } = {}) {
+  options: { signal?: AbortSignal; onProgress?: (value: ReadingProgress) => void; pages?: number[]; pageTimeoutMs?: number } = {}) {
   validateReadingInput(bytes.byteLength, mime);
   let worker: Worker | undefined;
   let total = 1;
@@ -19,9 +19,10 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
   function report(phase: ReadingProgress['phase'], message: string, fraction = 0) {
     if (!active) return;
     progress(message);
-    options.onProgress?.({ page: current, total, completed: outcomes.length,
-      percent: Math.min(99, Math.round((outcomes.length + fraction) / total * 100)), phase, message });
+    options.onProgress?.({ page: current, total: planned(), completed: outcomes.length,
+      percent: Math.min(99, Math.round((outcomes.length + fraction) / planned() * 100)), phase, message });
   }
+  function planned() { return options.pages?.filter(n => n <= total).length || total; }
   function terminate() {
     generation++;
     const old = worker; worker = undefined;
@@ -87,6 +88,7 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
         if (total > 20) throw new ReadingError('limit');
         for (let n = 1; n <= total; n++) {
           if (options.signal?.aborted) break;
+          if (options.pages && !options.pages.includes(n)) continue;
           current = n;
           report('text', `Reading page ${n} of ${total}…`);
           let abandon = false;
@@ -116,7 +118,7 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
                   return { page: n, ...await ocr(canvas), ocr: true };
                 } finally { canvas.width = 0; canvas.height = 0; }
               } finally { page.cleanup(); }
-            }, () => { abandon = true; render?.cancel(); terminate(); }, options.signal);
+            }, () => { abandon = true; render?.cancel(); terminate(); }, options.signal, options.pageTimeoutMs);
             record(result);
           } catch (error) {
             if (error instanceof ReadingError && error.code === 'limit') throw error;
@@ -141,18 +143,18 @@ export async function readDocument(bytes: Uint8Array, mime: string, progress: (m
         try {
           const ctx = canvas.getContext('2d'); if (!ctx) throw new ReadingError('unreadable');
           ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-          record({ page: 1, ...await withPageDeadline(() => ocr(canvas), terminate, options.signal), ocr: true });
+          record({ page: 1, ...await withPageDeadline(() => ocr(canvas), terminate, options.signal, options.pageTimeoutMs), ocr: true });
         } finally { canvas.width = 0; canvas.height = 0; }
       } finally { bitmap.close(); }
     }
     if (!pages.some(p => p.text.trim().length > 2)) throw new ReadingError(options.signal?.aborted ? 'interrupted' : 'unreadable');
-    const summary = readingSummary(outcomes, total, options.signal?.aborted === true);
+    const summary = readingSummary(outcomes, options.pages ? planned() : total, options.signal?.aborted === true);
     const reliable = pages.filter(p => outcomes.some(o => o.page === p.page && o.status === 'read'));
     const text = `${summary}\n\n${pages.map(privatePageText).join('\n\n')}`;
     if (text.length > 100000) throw new ReadingError('limit');
     report('saving', 'Saving private results for review…');
-    return { text, suggestions: suggestEntries(reliable), pages, outcomes, summary,
-      partial: outcomes.some(p => p.status !== 'read') || outcomes.length < total,
+    return { text, total, blocks: new Map(pages.map(p => [p.page, privatePageText(p)])), suggestions: suggestEntries(reliable), pages, outcomes, summary,
+      partial: outcomes.some(p => p.status !== 'read') || outcomes.length < planned(),
       method: pages.every(p => p.ocr) ? 'ocr' : pages.some(p => p.ocr) ? 'mixed' : 'pdf_text' };
   } finally { active = false; terminate(); }
 }

@@ -744,6 +744,7 @@ export type Database = {
         Returns: boolean
       }
       begin_document_reading: { Args: { _file: string }; Returns: Json }
+      begin_page_retry: { Args: { _file: string }; Returns: Json }
       career_entry_duplicate: {
         Args: {
           _data: Json
@@ -788,6 +789,16 @@ export type Database = {
       finish_document_reading: {
         Args: {
           _error?: string
+          _file: string
+          _method: string
+          _suggestions: Json
+          _text: string
+          _token: string
+        }
+        Returns: undefined
+      }
+      finish_page_retry: {
+        Args: {
           _file: string
           _method: string
           _suggestions: Json

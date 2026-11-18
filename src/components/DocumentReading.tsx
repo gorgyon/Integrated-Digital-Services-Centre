@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import type { ReadingProgress } from '@/modules/career/reading-session';
+import { mergeRetriedText, RETRY_PAGE_TIMEOUT_MS, unreadPages } from '@/modules/career/reading-session';
 
 export function DocumentReading({ fileId, name }: { fileId: string; name: string }) {
   const qc = useQueryClient();
@@ -86,6 +87,32 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
       toast.error(readingErrors[code]);
     } finally { setBusy(false); setMessage(''); controller.current = undefined; }
   }
+  async function retryPages(pages: number[], savedText: string) {
+    setBusy(true); setMessage('Loading private document…'); setElapsed(0); setStopping(false); setReadingProgress(undefined);
+    controller.current = new AbortController();
+    let token: string | undefined;
+    try {
+      const { data: claim, error } = await supabase.rpc('begin_page_retry', { _file: fileId });
+      if (error || !claim || typeof claim !== 'object' || Array.isArray(claim) || typeof claim['token'] !== 'string') throw new Error('start');
+      token = claim['token'];
+      await refresh();
+      const file = await download({ data: { fileId } });
+      const bytes = showSource(file.base64, file.mimeType);
+      const { readDocument } = await import('@/modules/career/read-document');
+      const result = await readDocument(bytes, file.mimeType, setMessage, { signal: controller.current.signal, onProgress: setReadingProgress, pages, pageTimeoutMs: RETRY_PAGE_TIMEOUT_MS });
+      const merged = mergeRetriedText(savedText, pages, result.blocks, result.outcomes, result.total);
+      const { error: saveError } = await supabase.rpc('finish_page_retry', { _file: fileId, _token: token, _text: merged.text, _suggestions: result.suggestions, _method: result.method });
+      if (saveError) throw new Error('save');
+      token = undefined; setOpen(true); await refresh();
+      const still = merged.outcomes.filter(o => o.status !== 'read').length;
+      if (still) toast.message(`New results added. ${still} page${still === 1 ? '' : 's'} still need manual review.`); else toast.success('All pages are now read.');
+    } catch {
+      toast.error('Those pages could not be read this time. Your earlier results are kept.');
+    } finally {
+      if (token) { await supabase.rpc('finish_page_retry', { _file: fileId, _token: token, _text: '', _suggestions: null, _method: 'ocr' }); await refresh(); }
+      setBusy(false); setMessage(''); controller.current = undefined;
+    }
+  }
   async function review() {
     setOpen(value => !value);
     if (!sourceUrl) {
@@ -98,6 +125,7 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
   const states: Record<string, string> = { uploaded: 'Uploaded', processing: 'Processing', review_required: 'Review required', completed: 'Completed', failed: 'Failed' };
   const stale = state === 'processing' && reading.data && Date.now() - new Date(reading.data.updated_at).getTime() >= 600000;
   const errorCode = reading.data?.error_code as ReadingErrorCode | null;
+  const unread = reading.data && (state === 'review_required' || state === 'completed') ? unreadPages(reading.data.extracted_text).pages : [];
   const summary = reading.data?.extracted_text.startsWith('Reading summary:') ? reading.data.extracted_text.split('\n\n')[0] : undefined;
   return <div className="w-full min-w-0 border-t border-border pt-3">
     <div className="flex flex-wrap items-center gap-2">
@@ -110,6 +138,9 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
       {(state === 'review_required' || state === 'completed') && <Button size="sm" variant="outline" disabled={busy} onClick={() => {
         if (confirm('Read this document again? Pending suggestions will be replaced. Existing profile drafts and confirmed information will not change.')) void process(true);
       }}><FileSearch aria-hidden="true" />Read again</Button>}
+      {unread.length > 0 && reading.data && <Button size="sm" disabled={busy} onClick={() => void retryPages(unread, reading.data!.extracted_text)}>
+        <FileSearch aria-hidden="true" />Retry unread pages ({unread.join(', ')})
+      </Button>}
     </div>
     {reading.isError && <p role="alert" className="mt-2 text-sm text-destructive">Could not load the reading status. <Button size="sm" variant="link" onClick={refresh}>Try again</Button></p>}
     {busy && <div className="mt-3 space-y-2">
