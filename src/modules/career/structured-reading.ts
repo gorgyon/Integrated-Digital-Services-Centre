@@ -54,12 +54,12 @@ export function privatePageText(page: ReadingPage) {
 }
 function heading(line: string): SuggestionKind | 'ignore' | undefined {
   const h = line.replace(/:$/, '').toLowerCase();
-  if (/^(education|academic background|education and training)$/.test(h)) return 'education';
-  if (/^(qualifications|certifications|certificates)$/.test(h)) return 'qualification';
-  if (/^(academic results|results|transcript|subjects|subject results)$/.test(h)) return 'result';
-  if (/^(skills|technical skills|key skills|competencies)$/.test(h)) return 'skill';
-  if (/^(employment history|work experience|professional experience|experience)$/.test(h)) return 'experience';
-  if (/^(references|contact details|personal details|profile|summary|interests|languages|declaration|achievements|responsibilities|duties)$/.test(h)) return 'ignore';
+  if (/^(education|academic background|educational background|education and training|education & training|academic qualifications|academic history|schooling|tertiary education)$/.test(h)) return 'education';
+  if (/^(qualifications|certifications|certificates|courses|training|licen[cs]es(?: and certifications)?|professional qualifications)$/.test(h)) return 'qualification';
+  if (/^(academic results|results|transcript|subjects|subject results|matric results)$/.test(h)) return 'result';
+  if (/^(sk[il1]{2,3}l?s|technical skills|key skills|core skills|soft skills|computer skills|skills (?:and|&) abilities|skills (?:and|&) competencies|abilities|competencies|core competencies|strengths|expertise)$/.test(h)) return 'skill';
+  if (/^(employment history|employment|work experience|work history|career history|professional experience|relevant experience|experience|internships?|volunteer(?:ing)? experience|work)$/.test(h)) return 'experience';
+  if (/^(references?|referees?|contact|contact details|contact information|personal details|personal information|personal profile|profile|professional profile|summary|professional summary|career summary|about me|about|objective|career objective|personal statement|interests|hobbies|hobbies and interests|languages|declaration|achievements|awards)$/.test(h)) return 'ignore';
   return undefined;
 }
 const organisation = (s: string) => /\b(university|college|school|institute|academy|technikon)\b/i.test(s) && !boilerplate.test(s);
@@ -98,12 +98,23 @@ export function structuredSuggestions(pages: ReadingPage[], unclear: Set<number>
     const lines = raw.map(clean).map(safeLine);
     let section = type === 'transcript' ? 'result' as const : type === 'cv' || type === 'supporting' ? carriedSection : undefined;
     const consumed = new Set<number>();
+    let last: Suggestion | undefined;
+    const latest = (kind: SuggestionKind) => { const found = [...out].reverse().find(s => s.page === page.page && s.kind === kind); last = found; };
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!line || consumed.has(i)) continue;
       const nextHeading = heading(line);
-      if (nextHeading) { section = nextHeading === 'ignore' ? undefined : nextHeading; continue; }
+      if (nextHeading) { section = nextHeading === 'ignore' ? undefined : nextHeading; last = undefined; continue; }
       if (boilerplate.test(line) || /\[identity|https?:|@/.test(line)) continue;
+      // Sentences and bullets are kept exactly as the applicant wrote them, under the job or course above them.
+      const sentence = bullets.has(i) || /[.!?]$/.test(line) || line.length > 180;
+      if (sentence && last && (section === 'experience' || section === 'education' || section === 'qualification') && !(!bullets.has(i) && line.split(/\s+/).length <= 12 && qualificationPattern.test(line))) {
+        const key = last.kind === 'experience' ? 'duties' : 'details';
+        const list = (last.data[key] ?? '').split('\n').filter(Boolean);
+        if (!list.includes(line)) list.push(line);
+        last.data[key] = list.join('\n').slice(0, 2400); last.source = `${last.source}\n${line}`.slice(0, 2000);
+        continue;
+      }
       // Matric certificate rows: subject, percentage and achievement level (1-7), with OCR edge noise removed.
       const matricRow = type === 'matric' ? line.replace(/^\S{1,2}\s+/, '').match(/^([A-Z][a-z]+(?: [A-Z][a-z]+){0,4})\s+(\d{1,3})\s+([1-7])\b/) : null;
       if (matricRow && Number(matricRow[2]) <= 100) {
@@ -138,17 +149,17 @@ export function structuredSuggestions(pages: ReadingPage[], unclear: Set<number>
         const field = labelled(block, /^field of study\s*:\s*(.+)$/i) ?? title.match(/\b(?:in|of)\s+(.+)$/i)?.[1];
         if (field) data['field'] = field;
         const year = yearFrom(block.join(' ')); if (year) data['year'] = year;
-        add('qualification', data, block.join('\n'), page);
+        add('qualification', data, block.join('\n'), page); latest('qualification');
         continue;
       }
       if (section === 'education' && organisation(line)) {
         const data: Record<string,string> = { institution: line.slice(0,200) };
         const next = lines[i + 1];
         if (next && /^grade\s+(?:[1-9]|1[01])\b/i.test(next)) { data['level'] = next.replace(/\s*[,|–-]?\s*\b(?:19|20)\d{2}\b.*$/, ''); const year = yearFrom(next); if (year) data['year'] = year; consumed.add(i + 1); }
-        add('education', data, next && data['level'] ? `${line}\n${next}` : line, page);
+        add('education', data, next && data['level'] ? `${line}\n${next}` : line, page); latest('education');
       } else if (section === 'skill' && line.length <= 160 && !/[.!?]$/.test(line)) {
         for (const part of line.split(/[,;|•]/)) { const name = part.trim(); if (name.length >= 2 && name.length <= 80 && !/^\d+$/.test(name) && name.split(' ').length <= 8) add('skill', { name }, name, page); }
-      } else if (section === 'experience' && line.length <= 180 && !/[.!?]$/.test(line) && !/^\d/.test(line)) {
+      } else if (section === 'experience' && !sentence && !/^\d/.test(line)) {
         const match = line.match(/^(.+?)\s+(?:at|@)\s+(.+?)(?:\s*[|,]\s*((?:19|20)\d{2}.*))?$/i);
         const data: Record<string,string> = { role: (match?.[1] ?? line).slice(0,200) };
         if (match?.[2]) data['employer'] = match[2];
@@ -158,7 +169,7 @@ export function structuredSuggestions(pages: ReadingPage[], unclear: Set<number>
           const employer = labelled([next], /^employer\s*:\s*(.+)$/i); const period = labelled([next], /^(?:dates|period)\s*:\s*(.+)$/i);
           if (employer) data['employer'] = employer; if (period) data['period'] = period; consumed.add(i + 1);
         }
-        add('experience', data, line, page);
+        add('experience', data, line, page); latest('experience');
       }
     }
     if (type === 'cv') {
@@ -167,6 +178,8 @@ export function structuredSuggestions(pages: ReadingPage[], unclear: Set<number>
       cvLayoutEntries(lines, bullets, page, add, out);
       if (page.layoutText) layoutFacts(page.layoutText, out.filter(s => s.page === page.page));
       if (page.layoutText) for (const name of layoutSkills(page.layoutText)) add('skill', { name }, name, page);
+      // A skill written on its own and the same skill inside a longer list item are one skill.
+      dropSkillFragments(out);
     }
     carriedSection = type === 'cv' || type === 'supporting' ? section : undefined;
   }
@@ -184,6 +197,7 @@ function combineEducation(entries: Suggestion[]): Suggestion[] {
       institution: original.data['issuer'] ?? '', level: original.data['title'] ?? '',
       ...(original.data['field'] ? { field: original.data['field'] } : {}),
       ...(original.data['year'] ? { year: original.data['year'] } : {}),
+      ...(original.data['details'] ? { details: original.data['details'] } : {}),
     } : { ...original.data };
     const institution = normalize(data['institution']); const level = normalize(data['level']);
     const prior = combined.find(s => {
@@ -208,6 +222,10 @@ function combineEducation(entries: Suggestion[]): Suggestion[] {
       ...(['field', 'year'] as const).reduce<Record<string, string>>((acc, k) => {
         const value = prior.data[k] || data[k]; if (value) acc[k] = value; return acc;
       }, {}),
+      ...(() => {
+        const lines = [...new Set([...(prior.data['details'] ?? '').split('\n'), ...(data['details'] ?? '').split('\n')].filter(Boolean))];
+        return lines.length ? { details: lines.join('\n').slice(0, 2400) } : {};
+      })(),
     };
     if (!prior.source.includes(original.source)) prior.source = `${prior.source}\n${original.source}`.slice(0, 2000);
   }
@@ -215,15 +233,6 @@ function combineEducation(entries: Suggestion[]): Suggestion[] {
 }
 
 const titleCase = (s: string) => s.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase()).replace(/\bOf\b/g, 'of');
-const skillWords: [RegExp, string][] = [
-  [/\bjava\s?script\b/i, 'JavaScript'], [/\bjava\b(?!\s?script)/i, 'Java'], [/\bpython\b/i, 'Python'], [/\bhtml\d?\b/i, 'HTML'],
-  [/\bcss\d?\b/i, 'CSS'], [/\bphp\b/i, 'PHP'], [/\b(?:my)?sql\b/i, 'SQL'], [/\bc#/i, 'C#'], [/\bc\+\+/i, 'C++'], [/\breact\b/i, 'React'],
-  [/\bgit(?:hub)?\b/i, 'Git'], [/\b(?:ms|microsoft) word\b/i, 'Microsoft Word'], [/\bexcel\b/i, 'Microsoft Excel'],
-  [/\bpowerpoint\b/i, 'Microsoft PowerPoint'], [/\b(?:ms|microsoft) office\b/i, 'Microsoft Office'], [/\btyping\b/i, 'Typing'],
-  [/\bscanning\b/i, 'Scanning'], [/\bphotocopying\b/i, 'Photocopying'], [/\blaminating\b/i, 'Laminating'],
-  [/\bteam leader\b/i, 'Team leadership'], [/\bdeveloped\b[^.]{0,40}\bwebsites?\b/i, 'Website development'],
-  [/\bsoftware development\b/i, 'Software development'],
-];
 type Add = (kind: SuggestionKind, data: Record<string, string>, source: string, page: ReadingPage) => void;
 /** Designed CVs often have headings as images: read their content by line shape instead. */
 function cvLayoutEntries(lines: string[], bullets: Set<number>, page: ReadingPage, add: Add, out: Suggestion[]) {
@@ -240,15 +249,27 @@ function cvLayoutEntries(lines: string[], bullets: Set<number>, page: ReadingPag
     if (/national senior certificate|matric/i.test(t) && schools.length === 1) q.data['issuer'] = schools[0]!;
     else if (/diploma|degree|bachelor|master/i.test(t) && universities.length === 1) q.data['issuer'] = universities[0]!;
   }
-  const isTitle = (l: string) => /^[A-Z][A-Za-z()&'é/ -]{2,60}$/.test(l) && l.split(/\s+/).length <= 6 && !qualificationPattern.test(l) && !/^[A-Z .&'-]+$/.test(l);
+  const isTitle = (l: string) => /^[A-Z][A-Za-z()&'é/ -]{2,60}$/.test(l) && l.split(/\s+/).length <= 6 && !qualificationPattern.test(l) && !/^[A-Z .&'-]+$/.test(l) && !heading(l);
+  const capsLabel = (l: string) => /^[A-Z][A-Z .&'-]*$/.test(l);
   const roles = new Map<string, { data: Record<string, string>; source: string }>();
-  let role: string | undefined;
+  let role: string | undefined; let course: string | undefined; let jobsAllowed = true;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? '';
-    if (!bullets.has(i)) { if (isTitle(line)) role = line; else if (qualificationPattern.test(line)) role = undefined; continue; }
+    const h = heading(line);
+    if (h) { role = undefined; course = undefined; jobsAllowed = h === 'experience'; continue; }
+    if (!bullets.has(i)) {
+      if (qualificationPattern.test(line) && line.split(/\s+/).length <= 12) { role = undefined; course = line.match(qualificationPattern)?.[0].replace(/\s*[,|–-]?\s*\b(?:19|20)\d{2}\b.*$/, '').trim(); }
+      else if (isTitle(line) && jobsAllowed) { role = line; course = undefined; }
+      continue;
+    }
     const block = [line];
-    for (let j = i + 1; j < lines.length && !bullets.has(j) && !isTitle(lines[j] ?? '') && !qualificationPattern.test(lines[j] ?? ''); j++) block.push(lines[j] ?? '');
+    // Wrapped lines continue the bullet; side-column labels in capitals (school or employer names) do not.
+    for (let j = i + 1; j < lines.length && !bullets.has(j) && !isTitle(lines[j] ?? '') && !qualificationPattern.test(lines[j] ?? '') && !heading(lines[j] ?? ''); j++) if (!capsLabel(lines[j] ?? '')) block.push(lines[j] ?? '');
     const joined = block.join(' ');
+    if (course && !role) {
+      const q = mine.find(s => (s.kind === 'qualification' && s.data['title'] === course) || (s.kind === 'education' && s.data['level'] === course));
+      if (q) { const list = (q.data['details'] ?? '').split('\n').filter(Boolean); if (!list.includes(joined)) list.push(joined); q.data['details'] = list.join('\n').slice(0, 2400); }
+    }
     const special = joined.match(/\bspeciali[sz]ed\s+in\s+([A-Za-z ]{3,60}?)(?:[.,]|$)/i)?.[1]?.trim();
     if (special) {
       let k = i; while (k >= 0 && (bullets.has(k) || !qualificationPattern.test(lines[k] ?? ''))) k--;
@@ -278,8 +299,15 @@ function cvLayoutEntries(lines: string[], bullets: Set<number>, page: ReadingPag
     const subject = lines[i] ?? '';
     if (/^[A-Za-z ]{3,40}$/.test(subject)) add('result', { subject }, `National Senior Certificate: ${subject}`, page);
   }
-  // Only when the CV had no readable skills list, so explicit skills are never duplicated.
-  if (!out.some(s => s.kind === 'skill')) for (const [pattern, name] of skillWords) { const m = text.match(pattern); if (m) add('skill', { name }, m[0], page); }
+  // Skills are never guessed from duties: only a written skills list becomes skills.
+}
+function dropSkillFragments(out: Suggestion[]) {
+  const names = out.filter(s => s.kind === 'skill').map(s => normalize(s.data['name']));
+  for (let i = out.length - 1; i >= 0; i--) {
+    const s = out[i]!; if (s.kind !== 'skill') continue;
+    const n = normalize(s.data['name']);
+    if (names.some(o => o !== n && o.length > n.length && ` ${o} `.includes(` ${n} `) && /,/.test(out.find(x => x.kind === 'skill' && normalize(x.data['name']) === o)?.data['name'] ?? ''))) out.splice(i, 1);
+  }
 }
 
 const hobbyWords = /\b(?:singing|dancing|travel(?:l)?ing|reading|music|sports?|soccer|netball|cooking|gaming|hiking|swimming|writing|drawing|photography|gardening|fashion|movies)\b/gi;
@@ -289,6 +317,11 @@ export function personalDetails(raw: string): Record<string, string> {
   const data: Record<string, string> = {};
   const name = lines.slice(0, 6).find(l => /^[A-Z][A-Za-z'-]+(?: [A-Z][A-Za-z'-]+){1,3}$/.test(l) && !/\b(?:curriculum|vitae|resume|university|school|college|solutions|technology|self|employed)\b/i.test(l));
   if (name) data['full_name'] = titleCase(name);
+  // Job title: printed straight under the name ("SOFTWARE DEVELOPER"), or labelled.
+  const headline = labelled(lines, /^(?:job title|position|current position|title|profession|occupation)\s*:\s*(.+)$/i)
+    ?? (name ? lines.flatMap((l, i) => normalize(l) === normalize(name) ? [lines[i + 1] ?? ''] : [])
+      .find(l => /^[A-Za-z][A-Za-z&/,' -]{2,60}$/.test(l) && l.split(/\s+/).length <= 6 && !heading(l) && !organisation(l) && !/\b(?:curriculum|vitae|resume)\b/i.test(l)) : undefined);
+  if (headline) data['headline'] = /^[^a-z]+$/.test(headline) ? titleCase(headline) : headline;
   const text = lines.join('\n');
   // Email addresses are lower case: a capital I in one is OCR for l.
   const email = text.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/); if (email) data['email'] = email[0].replace(/I/g, 'l').toLowerCase();
@@ -296,7 +329,8 @@ export function personalDetails(raw: string): Record<string, string> {
   const refAt = lines.findIndex(l => /^references?\b/i.test(l));
   for (const [i, l] of lines.entries()) {
     if (refAt >= 0 && i > refAt && i <= refAt + 4) continue;
-    const phone = l.match(/(?:\+27|\b0)[\s-]?\d{2}[\s-]?\d{3}[\s-]?\d{4}\b/); if (phone) { data['phone'] = phone[0].replace(/\s+/g, ' '); break; }
+    const phone = l.match(/(?:\+27|\b0)[\s-]?\d{2}[\s-]?\d{3}[\s-]?\d{4}\b/);
+    if (phone) { const digits = phone[0].replace(/\D/g, ''); data['phone'] = /^0\d{9}$/.test(digits) ? `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}` : phone[0].replace(/\s+/g, ' '); break; }
   }
   let location = labelled(lines, /^(?:address|residential address|location|city|town)\s*:\s*(.+)$/i);
   if (!location) {
@@ -308,7 +342,7 @@ export function personalDetails(raw: string): Record<string, string> {
     }
   }
   if (location) data['location'] = location;
-  const about = lines.findIndex(l => /^(?:about me|profile|summary|personal profile|career objective|objective)$/i.test(l));
+  const about = lines.findIndex(l => /^(?:about me|about|profile|summary|personal profile|professional profile|professional summary|career summary|career profile|personal statement|career objective|objective)\s*:?$/i.test(l));
   if (about >= 0) {
     const body: string[] = [];
     for (let i = about + 1; i < lines.length && body.length < 10; i++) { const l = lines[i]!; if (/^[A-Z][A-Z ]{3,}$/.test(l)) break; body.push(l); }
@@ -394,7 +428,12 @@ export function layoutFacts(layoutText: string, mine: Suggestion[]) {
     const at = lines.findIndex(l => role.length > 4 && normalize(l).includes(role));
     if (at < 0) continue;
     const pieces: string[] = [];
-    for (const l of lines.slice(at + 1, at + 7)) { const p = datePiece(l); if (p) pieces.push(p); if (pieces.length === 2 || /present/i.test(p ?? '')) break; }
+    const after = lines.slice(at + 1, at + 7);
+    for (const l of after) { const p = datePiece(l); if (p) pieces.push(p); if (pieces.length === 2 || /present/i.test(p ?? '')) break; }
+    // The town printed above the dates in the side column ("Polokwane", "Sandton").
+    const dateAt = after.findIndex(l => datePiece(l));
+    const town = dateAt > 0 ? after[dateAt - 1]!.split('|')[0]!.trim().split(/\s+/)[0]?.replace(/[.,]$/, '') : undefined;
+    if (town && !job.data['location'] && /^[A-Z][a-z]{3,}$/.test(town) && !/(?:ed|ing|ly)$/.test(town) && !datePiece(town) && !/^(?:Solutions|Company|Limited|Holdings|Group|Services|Which|While|During|Currently|The|And)$/.test(town)) job.data['location'] = town;
     // "February" + "2017 – Present" -> "February 2017 – Present"
     let period = pieces.join(' – ').replace(/^([A-Z][a-z]+) – ((?:19|20)\d{2}) – /, '$1 $2 – ').replace(/^([A-Z][a-z]+) – ((?:19|20)\d{2})/, '$1 $2');
     if (/\d{4}/.test(period) && period.length > (job.data['period'] ?? '').length) job.data['period'] = period;
@@ -407,12 +446,18 @@ export function layoutSkills(layoutText: string): string[] {
   const at = lines.findIndex(l => /^sk[il1]{2,3}l?s\b/i.test(l) && l.length < 20);
   if (at < 0) return [];
   const found: string[] = [];
+  let open: number | undefined;
   for (const line of lines.slice(at + 1, at + 20)) {
-    if (/^[A-Z]{4,}\b/.test(line) && !/[>»]/.test(line)) break;
-    for (const part of line.split(/\s*[>»➢]\s*/).map(p => p.replace(/^[:.\s]+|[,\s]+$/g, '')).filter(Boolean)) {
-      if (/^[A-Za-z][A-Za-z ,/#+.-]{1,50}$/.test(part) && !found.some(f => f.toLowerCase() === part.toLowerCase())) found.push(part.replace(/\bJavaSript\b/, 'JavaScript'));
-    }
+    if (/^[A-Z]{4,}\b/.test(line) && !/[>»➢•]/.test(line)) break;
+    const continuing = open; open = undefined;
+    const arrowFirst = /^[>»➢•*-]/.test(line);
+    line.split(/\s*[>»➢•]\s*/).forEach((segment, idx) => {
+      const raw = segment.replace(/^[:.\s]+|\s+$/g, ''); if (!raw) return;
+      const part = raw.replace(/,+$/, '').trim().replace(/\bJavaSript\b/, 'JavaScript');
+      // A line that continues the previous bullet ("JavaSript" after "PHP, HTML, CSS, SQL,") joins it, as written.
+      if (idx === 0 && !arrowFirst && continuing !== undefined) { found[continuing] = `${found[continuing]}, ${part}`; if (raw.endsWith(',')) open = continuing; return; }
+      if (/^[A-Za-z][A-Za-z ,/#+.&()-]{1,80}$/.test(part) && !found.some(f => f.toLowerCase() === part.toLowerCase())) { found.push(part); if (raw.endsWith(',')) open = found.length - 1; }
+    });
   }
-  // A line that continues the previous bullet ("JavaSript" after "PHP, HTML, CSS, SQL,") joins it.
   return found.slice(0, 30);
 }

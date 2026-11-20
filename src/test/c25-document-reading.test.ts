@@ -2,7 +2,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { classifyPage, privatePageText, structuredSuggestions } from '@/modules/career/structured-reading';
+import { classifyPage, layoutFacts, layoutSkills, personalDetails, privatePageText, structuredSuggestions } from '@/modules/career/structured-reading';
 import { suggestEntries, validateReadingInput } from '@/modules/career/reading-rules';
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 let db: PGlite;
@@ -198,8 +198,8 @@ describe('designed CV pages without readable headings', () => {
   it('reads the CV as a CV, not as a diploma', () => expect(classifyPage(cv)).toBe('cv'));
   it('combines each qualification, institution, study field and specialisation into one Education entry', () => {
     expect(of('education')).toEqual([
-      { level: 'Diploma in Information Technology', field: 'Information Technology — Software Development specialisation', institution: 'Northern University of Technology' },
-      { level: 'National Senior Certificate', institution: 'Riverside High School' },
+      { level: 'Diploma in Information Technology', field: 'Information Technology — Software Development specialisation', institution: 'Northern University of Technology', details: 'Diploma in IT graduate.\nSpecialized in Software development.' },
+      { level: 'National Senior Certificate', institution: 'Riverside High School', details: 'English\nMathematics\nPhysical Sciences' },
     ]);
     expect(of('qualification')).toEqual([]);
   });
@@ -210,7 +210,8 @@ describe('designed CV pages without readable headings', () => {
       { role: 'Software Development (HOD)', duties: 'Developed systems and websites for Acme Solutions. I was a team leader at the same time.', employer: 'Acme Solutions' },
     ]);
     expect(of('result').map(r => r['subject'])).toEqual(['English', 'Mathematics', 'Physical Sciences']);
-    expect(of('skill').map(s => s['name'])).toEqual(expect.arrayContaining(['JavaScript', 'Typing', 'Team leadership']));
+    // Duties are never turned into skills.
+    expect(of('skill')).toEqual([]);
   });
   it('withholds ID numbers that OCR split with spaces', () => {
     const p = { page: 2, text: 'NOTICE OF CHANGE OF ADDRESS\nI.D. No. 900101 5009 087', ocr: true };
@@ -260,5 +261,29 @@ describe('designed CV pages without readable headings', () => {
     expect(out.find(s => s.kind === 'education')?.data['year']).toBe('2023');
     expect(out.find(s => s.kind === 'education' && /Diploma/.test(s.data['level'] ?? ''))?.data['year']).toBe('2023');
     expect(out.find(s => s.kind === 'experience')?.data['period']).toBe('February 2017 – Present');
+  });
+});
+
+describe('reading any resume as written', () => {
+  it('reads the job title under the name, contact details and the About me paragraph', () => {
+    const d = personalDetails('THANDI NKOSI\nMARKETING COORDINATOR\nPhone: 0821234567\nthandi@example.com\nProfessional summary\nCreative marketer with five years of brand experience.\nEXPERIENCE');
+    expect(d).toMatchObject({ full_name: 'Thandi Nkosi', headline: 'Marketing Coordinator', phone: '082 123 4567', email: 'thandi@example.com', objective: 'Creative marketer with five years of brand experience.' });
+  });
+  it('keeps every bullet under its job and course in a standard resume with headings', () => {
+    const text = ['Curriculum Vitae', 'Work history', 'Cashier at Shoprite | 2019-2021', '• Handled cash and card payments.', '• Trained three new cashiers',
+      'Education', 'University of Limpopo', '• Studied accounting modules and statistics.', 'Skills', '• Customer service', '• Microsoft Excel'].join('\n');
+    const found = structuredSuggestions([{ page: 1, text, ocr: false }]);
+    expect(found.find(s => s.kind === 'experience')?.data).toMatchObject({ role: 'Cashier', employer: 'Shoprite', duties: 'Handled cash and card payments.\nTrained three new cashiers' });
+    expect(found.find(s => s.kind === 'education')?.data).toMatchObject({ institution: 'University of Limpopo', details: 'Studied accounting modules and statistics.' });
+    expect(found.filter(s => s.kind === 'skill').map(s => s.data['name'])).toEqual(['Customer service', 'Microsoft Excel']);
+  });
+  it('reads a two-column skills list and joins a skill that continues on the next line', () => {
+    expect(layoutSkills(['SKIILS', '> Software development > Creative thinking', '» PHP, HTML, CSS, SQL, » Team work', 'JavaSript » Abliity to lear fast and adapt', 'HOBBIES'].join('\n')))
+      .toEqual(['Software development', 'Creative thinking', 'PHP, HTML, CSS, SQL, JavaScript', 'Team work', 'Ability to learn fast and adapt']);
+  });
+  it('reads the town above the dates of each job', () => {
+    const job = { kind: 'experience' as const, data: { role: 'Internet Café Assistant' }, source: '', page: 1, uncertain: true, status: 'pending' as const };
+    layoutFacts(['SELF | Internet Café Assistant', 'EMPLOYED |» Worked at Example Printing', 'Polokwane | which is a family business', 'February . 2017.', '2017-Present'].join('\n'), [job]);
+    expect(job.data).toMatchObject({ location: 'Polokwane', period: 'February 2017 – Present' });
   });
 });

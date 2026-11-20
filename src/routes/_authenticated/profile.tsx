@@ -34,23 +34,25 @@ type Data = {
   [key: string]: string | undefined;
   title?: string; issuer?: string; field?: string; year?: string; institution?: string; level?: string;
   objective?: string; summary?: string; full_name?: string; phone?: string; email?: string; location?: string;
-  languages?: string; interests?: string; duties?: string; subject?: string; grade?: string; qualification?: string;
+  languages?: string; interests?: string; duties?: string; headline?: string; details?: string; subject?: string; grade?: string; qualification?: string;
 };
 type Field = { key: string; label: string };
 type ViewEntry = { primary: Entry; entries: Entry[]; data: Data };
 
 const PERSONAL_FIELDS: Field[] = [
-  { key: "full_name", label: "Full name" }, { key: "phone", label: "Phone" }, { key: "email", label: "Email" },
+  { key: "full_name", label: "Full name" }, { key: "headline", label: "Job title" }, { key: "phone", label: "Phone" }, { key: "email", label: "Email" },
   { key: "location", label: "Location or address" }, { key: "languages", label: "Languages" },
   { key: "interests", label: "Interests and hobbies" }, { key: "objective", label: "Career objective" },
 ];
 const EDUCATION_FIELDS: Field[] = [
   { key: "level", label: "Qualification or level" }, { key: "institution", label: "School or institution" },
   { key: "field", label: "Field of study" }, { key: "year", label: "Year completed" },
+  { key: "details", label: "What you wrote about it (one point per line)" },
 ];
 const QUALIFICATION_FIELDS: Field[] = [
   { key: "title", label: "Qualification" }, { key: "issuer", label: "Issued by" },
   { key: "field", label: "Field of study" }, { key: "year", label: "Year" },
+  { key: "details", label: "What you wrote about it (one point per line)" },
 ];
 const KINDS: { kind: Kind; title: string; fields: Field[] }[] = [
   { kind: "personal", title: "Personal and contact details", fields: PERSONAL_FIELDS },
@@ -62,8 +64,8 @@ const KINDS: { kind: Kind; title: string; fields: Field[] }[] = [
   ] },
   { kind: "skill", title: "Skills", fields: [{ key: "name", label: "Skill" }, { key: "level", label: "Level (e.g. Beginner, Advanced)" }] },
   { kind: "experience", title: "Employment history and experience", fields: [
-    { key: "role", label: "Role or experience" }, { key: "employer", label: "Employer" },
-    { key: "period", label: "Dates" }, { key: "duties", label: "Duties and achievements" },
+    { key: "role", label: "Job title or role" }, { key: "employer", label: "Employer" },
+    { key: "location", label: "Location" }, { key: "period", label: "Dates" }, { key: "duties", label: "Duties and achievements" },
   ] },
 ];
 const SECTIONS = KINDS.filter(({ kind }) => kind !== "qualification");
@@ -79,7 +81,7 @@ function educationViews(entries: Entry[]): ViewEntry[] {
   for (const entry of entries) {
     const original = shownData(entry);
     const data: Data = entry.kind === "qualification"
-      ? { level: original.title ?? "", institution: original.issuer ?? "", field: original.field ?? "", year: original.year ?? "" }
+      ? { level: original.title ?? "", institution: original.issuer ?? "", field: original.field ?? "", year: original.year ?? "", details: original.details ?? "" }
       : { ...original };
     const prior = views.find((view) => {
       const institutionMatches = normal(view.data.institution) && normal(view.data.institution) === normal(data.institution);
@@ -98,6 +100,7 @@ function educationViews(entries: Entry[]): ViewEntry[] {
       level: (entry.kind === "qualification" && (isSchoolLevel(data.level) || !prior.data.level) ? data.level : prior.data.level || data.level) ?? "",
       field: prior.data.field || data.field || "",
       year: prior.data.year || data.year || "",
+      details: [...new Set([...(prior.data.details ?? "").split("\n"), ...(data.details ?? "").split("\n")].filter(Boolean))].join("\n"),
     };
   }
   return views;
@@ -230,6 +233,7 @@ function EntryContent({ kind, view, docName, includeObjective = false }: {
   const page = primary.draft_data ? primary.draft_source_page : primary.confirmed_source_page;
   if (kind === "personal") return <div className="min-w-0 break-words">
     <p className="text-base font-semibold">{d.full_name || "—"}</p>
+    {d.headline ? <p className="text-sm font-medium uppercase tracking-wide text-primary">{d.headline}</p> : null}
     <div className="mt-2 grid gap-2">
       {d.phone ? <p className="flex items-start gap-2"><Phone className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" /><span>{d.phone}</span></p> : null}
       {d.email ? <p className="flex items-start gap-2"><Mail className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" /><span className="break-all">{d.email}</span></p> : null}
@@ -244,14 +248,16 @@ function EntryContent({ kind, view, docName, includeObjective = false }: {
   const fields = kind === "education" ? EDUCATION_FIELDS : KINDS.find((k) => k.kind === kind)?.fields ?? [];
   const title = kind === "education" ? d.level || d.institution : d[fields[0]?.key ?? ""];
   const details = kind === "education"
-    ? [{ key: "institution", label: "School or institution" }, { key: "field", label: "Field of study" }, { key: "year", label: "Year completed" }]
+    ? [{ key: "institution", label: "School or institution" }, { key: "field", label: "Field of study" }, { key: "year", label: "Year completed" }, { key: "details", label: "" }]
     : fields.slice(1).filter((f) => f.key !== "objective" && f.key !== "summary");
   return <div className="min-w-0 break-words">
     <p className="font-medium">{title || "—"}</p>
     {details.filter((f) => d[f.key]).map((f) => f.key === "duties" ? <div key={f.key} className="mt-2">
       <p className="font-medium">Duties and achievements</p>
       <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">{d.duties?.split("\n").filter(Boolean).map((duty, index) => <li key={`${index}-${duty}`}>{duty}</li>)}</ul>
-    </div> : <p key={f.key} className="mt-0.5 text-muted-foreground"><span>{f.label}: </span>{d[f.key]}</p>)}
+    </div> : f.key === "details" ? <ul key={f.key} className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+      {d.details?.split("\n").filter(Boolean).map((line, index) => <li key={`${index}-${line}`}>{line}</li>)}
+    </ul> : <p key={f.key} className="mt-0.5 text-muted-foreground"><span>{f.label}: </span>{d[f.key]}</p>)}
     <Source docName={docName} fileId={fileId} page={page} />
   </div>;
 }
@@ -286,7 +292,7 @@ function EntryForm({ kind, entry, initial, docs, onCancel, onSave }: {
       e.preventDefault();
       const f = new FormData(e.currentTarget); const data: Data = {};
       for (const { key } of def.fields) {
-        const limit = key === "duties" ? 2400 : key === "objective" || key === "summary" ? 1000 : 200;
+        const limit = key === "duties" || key === "details" ? 2400 : key === "objective" || key === "summary" ? 1000 : 200;
         const v = String(f.get(key) ?? "").trim().slice(0, limit); if (v) data[key] = v;
       }
       const first = def.fields[0];
@@ -294,11 +300,11 @@ function EntryForm({ kind, entry, initial, docs, onCancel, onSave }: {
       onSave(data, String(f.get("file") ?? ""));
     }}>
       {def.fields.map((fl) => {
-        const multiline = fl.key === "duties" || fl.key === "objective" || fl.key === "summary";
-        const maxLength = fl.key === "duties" ? 2400 : multiline ? 1000 : 200;
+        const multiline = fl.key === "duties" || fl.key === "details" || fl.key === "objective" || fl.key === "summary";
+        const maxLength = fl.key === "duties" || fl.key === "details" ? 2400 : multiline ? 1000 : 200;
         return <div key={fl.key} className="flex flex-col gap-1">
           <Label htmlFor={`${kind}-${fl.key}`}>{fl.label}</Label>
-          {multiline ? <Textarea id={`${kind}-${fl.key}`} name={fl.key} defaultValue={start[fl.key] ?? ""} maxLength={maxLength} rows={fl.key === "duties" ? 7 : 5} />
+          {multiline ? <Textarea id={`${kind}-${fl.key}`} name={fl.key} defaultValue={start[fl.key] ?? ""} maxLength={maxLength} rows={fl.key === "duties" || fl.key === "details" ? 7 : 5} />
             : <Input id={`${kind}-${fl.key}`} name={fl.key} defaultValue={start[fl.key] ?? ""} maxLength={maxLength} />}
         </div>;
       })}

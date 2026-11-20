@@ -301,8 +301,8 @@ function SuggestionReview({ suggestion, index, fileId, refresh }: { suggestion: 
     {suggestion.status === 'pending' && <>
       {editing && <div className="mt-3 grid gap-2">{fields.map(field => <div key={field.key} className="grid gap-1">
         <Label htmlFor={`${fileId}-${index}-${field.key}`}>{field.label}</Label>
-        {field.key === 'duties' || field.key === 'objective'
-          ? <Textarea id={`${fileId}-${index}-${field.key}`} value={data[field.key] ?? ''} maxLength={field.key === 'duties' ? 2400 : 1000} rows={field.key === 'duties' ? 7 : 5} onChange={e => setData({ ...data, [field.key]: e.target.value })} />
+        {field.key === 'duties' || field.key === 'details' || field.key === 'objective'
+          ? <Textarea id={`${fileId}-${index}-${field.key}`} value={data[field.key] ?? ''} maxLength={field.key === 'objective' ? 1000 : 2400} rows={field.key === 'objective' ? 5 : 7} onChange={e => setData({ ...data, [field.key]: e.target.value })} />
           : <Input id={`${fileId}-${index}-${field.key}`} value={data[field.key] ?? ''} maxLength={200} onChange={e => setData({ ...data, [field.key]: e.target.value })} />}
       </div>)}</div>}
       <details className="mt-2"><summary className="cursor-pointer text-xs text-muted-foreground">Where this came from</summary>
