@@ -11,6 +11,7 @@ import type { ReadingErrorCode, Suggestion, SuggestionKind } from '@/modules/car
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import type { ReadingProgress } from '@/modules/career/reading-session';
@@ -231,7 +232,7 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
   </div>;
 }
 
-const kindOrder: SuggestionKind[] = ['personal', 'qualification', 'education', 'result', 'experience', 'skill'];
+const kindOrder: SuggestionKind[] = ['personal', 'education', 'result', 'experience', 'skill'];
 function PageSuggestions({ items, fileId, refresh }: { items: { s: Suggestion; index: number }[]; fileId: string; refresh: () => Promise<void> }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -250,7 +251,7 @@ function PageSuggestions({ items, fileId, refresh }: { items: { s: Suggestion; i
   return <div className="mt-3 space-y-4">
     {pending.length > 1 && <Button size="sm" disabled={busy} onClick={acceptAll}><Check aria-hidden="true" />Accept all {pending.length} from this page as drafts</Button>}
     {kindOrder.map(kind => {
-      const group = items.filter(({ s }) => s.kind === kind);
+      const group = items.filter(({ s }) => (s.kind === 'qualification' ? 'education' : s.kind) === kind);
       if (!group.length) return null;
       return <div key={kind} className="space-y-2">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{kindLabels[kind]}{group.length > 1 ? ` (${group.length})` : ''}</h4>
@@ -262,7 +263,8 @@ function PageSuggestions({ items, fileId, refresh }: { items: { s: Suggestion; i
 
 function SuggestionReview({ suggestion, index, fileId, refresh }: { suggestion: Suggestion; index: number; fileId: string; refresh: () => Promise<void> }) {
   const qc = useQueryClient();
-  const [data, setData] = useState(suggestion.data);
+  const [data, setData] = useState(() => suggestion.kind === 'personal' && !suggestion.data['objective'] && suggestion.data['summary']
+    ? { ...suggestion.data, objective: suggestion.data['summary'] } : suggestion.data);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const fields = readingFields[suggestion.kind];
@@ -290,7 +292,7 @@ function SuggestionReview({ suggestion, index, fileId, refresh }: { suggestion: 
       <div className="min-w-0">
         <p className="break-words font-medium">{data[main?.key ?? ''] || '—'}</p>
         {details.length > 0 && <dl className="mt-1 grid gap-x-3 gap-y-0.5 text-sm sm:grid-cols-[auto_1fr]">
-          {details.map(f => <div key={f.key} className="contents"><dt className="text-muted-foreground">{f.label}</dt><dd className="break-words">{data[f.key]}</dd></div>)}
+          {details.map(f => <div key={f.key} className="contents"><dt className="text-muted-foreground">{f.label}</dt><dd className="whitespace-pre-line break-words">{data[f.key]}</dd></div>) }
         </dl>}
         {suggestion.status === 'pending' && missing.length > 0 && !editing && <p className="mt-1 text-xs text-muted-foreground">Not found on the page: {missing.join(', ')}. Add them with Edit if you know them.</p>}
       </div>
@@ -299,7 +301,9 @@ function SuggestionReview({ suggestion, index, fileId, refresh }: { suggestion: 
     {suggestion.status === 'pending' && <>
       {editing && <div className="mt-3 grid gap-2">{fields.map(field => <div key={field.key} className="grid gap-1">
         <Label htmlFor={`${fileId}-${index}-${field.key}`}>{field.label}</Label>
-        <Input id={`${fileId}-${index}-${field.key}`} value={data[field.key] ?? ''} maxLength={200} onChange={e => setData({ ...data, [field.key]: e.target.value })} />
+        {field.key === 'duties' || field.key === 'objective'
+          ? <Textarea id={`${fileId}-${index}-${field.key}`} value={data[field.key] ?? ''} maxLength={field.key === 'duties' ? 2400 : 1000} rows={field.key === 'duties' ? 7 : 5} onChange={e => setData({ ...data, [field.key]: e.target.value })} />
+          : <Input id={`${fileId}-${index}-${field.key}`} value={data[field.key] ?? ''} maxLength={200} onChange={e => setData({ ...data, [field.key]: e.target.value })} />}
       </div>)}</div>}
       <details className="mt-2"><summary className="cursor-pointer text-xs text-muted-foreground">Where this came from</summary>
         <blockquote className="mt-1 whitespace-pre-line break-words border-l-2 border-border pl-3 text-xs text-muted-foreground">{suggestion.source}</blockquote>

@@ -6,12 +6,12 @@ export type Suggestion = {
   page: number; uncertain: boolean; status: 'pending' | 'accepted' | 'rejected';
 };
 export const readingFields: Record<SuggestionKind, { key: string; label: string }[]> = {
-  education: [{ key: 'institution', label: 'School or institution' }, { key: 'level', label: 'Level' }, { key: 'field', label: 'Field of study' }, { key: 'year', label: 'Year completed' }],
+  education: [{ key: 'level', label: 'Qualification or level' }, { key: 'institution', label: 'School or institution' }, { key: 'field', label: 'Field of study' }, { key: 'year', label: 'Year completed' }],
   qualification: [{ key: 'title', label: 'Qualification' }, { key: 'issuer', label: 'Issued by' }, { key: 'field', label: 'Field of study' }, { key: 'year', label: 'Year' }],
   result: [{ key: 'subject', label: 'Subject or module' }, { key: 'grade', label: 'Mark or grade' }, { key: 'year', label: 'Year' }, { key: 'qualification', label: 'Part of qualification' }],
   skill: [{ key: 'name', label: 'Skill' }, { key: 'level', label: 'Level' }],
-  personal: [{ key: 'full_name', label: 'Full name' }, { key: 'phone', label: 'Phone' }, { key: 'email', label: 'Email' }, { key: 'location', label: 'Location or address' }, { key: 'languages', label: 'Languages' }, { key: 'interests', label: 'Interests and hobbies' }, { key: 'summary', label: 'About me' }],
-  experience: [{ key: 'role', label: 'Role or experience' }, { key: 'employer', label: 'Employer' }, { key: 'period', label: 'Dates' }],
+  personal: [{ key: 'full_name', label: 'Full name' }, { key: 'phone', label: 'Phone' }, { key: 'email', label: 'Email' }, { key: 'location', label: 'Location or address' }, { key: 'languages', label: 'Languages' }, { key: 'interests', label: 'Interests and hobbies' }, { key: 'objective', label: 'Career objective' }],
+  experience: [{ key: 'role', label: 'Role or experience' }, { key: 'employer', label: 'Employer' }, { key: 'period', label: 'Dates' }, { key: 'duties', label: 'Duties and achievements' }],
 };
 export type ReadingErrorCode = 'unreadable' | 'encrypted' | 'oversized' | 'unsupported' | 'limit' | 'interrupted';
 export class ReadingError extends Error {

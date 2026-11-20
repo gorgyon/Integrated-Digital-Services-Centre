@@ -1,5 +1,14 @@
 # C2.5 structured reading improvements — review report
 
+## CV completeness and unified Education — 20 Nov 2026
+- CV layout reading now retains every duty bullet associated with each role, the complete About me/objective paragraph, and the existing contact/address extraction.
+- Qualifications are returned as Education suggestions containing qualification/level, institution, field of study, specialisation and year. Institution-only fragments are combined rather than shown as separate cards.
+- The profile presents older qualification rows and newer education rows together in one Education section. Matching drafts are displayed as one card; editing/removal still uses the owner-checked C2 RPCs.
+- Personal details use a resume-style contact block, the About me paragraph appears in a separate Career objective card, and employment duties have a multiline editable field.
+- Migration `0017_c25_unified_education_duplicates.sql` prevents cross-type Education/Qualification duplicates without rewriting existing draft or confirmed data.
+- Actual private `Lillian CV.pdf` page 1 was read through audited owner access without saving: 28 suggestions included the address, phone, email, complete objective, two unified Education entries (TUT diploma/Software Development and NSC), both roles and all duty bullets. OCR remains applicant-reviewed; ambiguous characters can still require correction.
+- Focused checks: 39/39 tests; mobile 360px and desktop rendering, no separate Qualifications section, no horizontal overflow or browser page errors.
+
 ## Result
 Page-by-page rules identify CV, identity, matric, diploma, degree, transcript or other supporting pages. Explicit qualifications are grouped with nearby labelled institution, field and completion details; subjects/results, school education, skills and employment evidence are mapped to existing C2 sections. Boilerplate no longer creates qualifications. Every suggestion remains uncertain until applicant review.
 

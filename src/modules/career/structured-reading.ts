@@ -25,6 +25,8 @@ const safeLine = (s: string) => (/\b[iIlT1][dco]\w{2,5}[il1t]y\b/i.test(s) && /\
 export function fixOcr(s: string) {
   return s.replace(/\bl(?=[A-Z]{1,3}\b)/g, 'I').replace(/\bln(?=[a-z]{3,})/g, 'In').replace(/\blwas\b/g, 'I was')
     .replace(/\bCertif\s+icate/gi, 'Certificate').replace(/\bJavaSript\b/gi, 'JavaScript').replace(/\bCaf6\b/g, 'Café')
+    .replace(/\bf\s+rom\b/gi, 'from').replace(/\bd\s+iff\s+erent\b/gi, 'different').replace(/\bv\s+irtual\s+ly\b/gi, 'virtually')
+    .replace(/\binteruiews\b/gi, 'interviews').replace(/\bAbliity to lear fast and adapt\b/gi, 'Ability to learn fast and adapt')
     .replace(/\b(Physical|Life|Computer|Business|Social|Natural)(Sciences?|Studies)\b/g, '$1 $2');
 }
 function cvScore(text: string) {
@@ -168,7 +170,48 @@ export function structuredSuggestions(pages: ReadingPage[], unclear: Set<number>
     }
     carriedSection = type === 'cv' || type === 'supporting' ? section : undefined;
   }
-  return out;
+  return combineEducation(out);
+}
+
+/** A qualification and its institution are one Education record, never two competing cards. */
+function combineEducation(entries: Suggestion[]): Suggestion[] {
+  const combined: Suggestion[] = [];
+  const schoolLevel = (s: string) => /grade\s*12|national senior certificate|\bmatric/i.test(s);
+  for (const original of entries) {
+    if (original.kind !== 'education' && original.kind !== 'qualification') { combined.push(original); continue; }
+    const qualification = original.kind === 'qualification';
+    const data: Record<string, string> = qualification ? {
+      institution: original.data['issuer'] ?? '', level: original.data['title'] ?? '',
+      ...(original.data['field'] ? { field: original.data['field'] } : {}),
+      ...(original.data['year'] ? { year: original.data['year'] } : {}),
+    } : { ...original.data };
+    const institution = normalize(data['institution']); const level = normalize(data['level']);
+    const prior = combined.find(s => {
+      if (s.kind !== 'education') return false;
+      const otherInstitution = normalize(s.data['institution']); const otherLevel = normalize(s.data['level']);
+      const institutionMatch = !!institution && institution === otherInstitution;
+      const levelMatch = !!level && level === otherLevel;
+      if (!institutionMatch && !levelMatch) return false;
+      if (institution && otherInstitution && institution !== otherInstitution) return false;
+      if (level && otherLevel && level !== otherLevel && !(schoolLevel(level) && schoolLevel(otherLevel))) return false;
+      return ['field', 'year'].every(k => !data[k] || !s.data[k] || normalize(data[k]) === normalize(s.data[k]));
+    });
+    if (!prior) {
+      combined.push({ ...original, kind: 'education', data, source: original.source });
+      continue;
+    }
+    const priorLevel = prior.data['level'] ?? '';
+    const preferredLevel = qualification && (schoolLevel(data['level'] ?? '') || !priorLevel) ? data['level'] : priorLevel || data['level'];
+    prior.data = {
+      institution: prior.data['institution'] || data['institution'] || '',
+      ...(preferredLevel ? { level: preferredLevel } : {}),
+      ...(['field', 'year'] as const).reduce<Record<string, string>>((acc, k) => {
+        const value = prior.data[k] || data[k]; if (value) acc[k] = value; return acc;
+      }, {}),
+    };
+    if (!prior.source.includes(original.source)) prior.source = `${prior.source}\n${original.source}`.slice(0, 2000);
+  }
+  return combined;
 }
 
 const titleCase = (s: string) => s.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase()).replace(/\bOf\b/g, 'of');
@@ -214,13 +257,17 @@ function cvLayoutEntries(lines: string[], bullets: Set<number>, page: ReadingPag
       if (q) q.data['field'] = `${q.data['field'] ? `${q.data['field']} — ` : ''}${titleCase(special).replace(/^./, c => c.toUpperCase())} specialisation`;
       continue;
     }
-    if (role && /\b(?:worked|working|employed|developed|interned)\b/i.test(joined)) {
+    if (role) {
       const entry = roles.get(role) ?? { data: { role }, source: role };
+      // Every bullet belonging to the role is evidence, not only bullets containing "worked" or "developed".
+      const duties = (entry.data['duties'] ?? '').split('\n').filter(Boolean);
+      if (!duties.includes(joined)) duties.push(joined);
+      entry.data['duties'] = duties.join('\n').slice(0, 2400);
       const employer = joined.match(/\b(?:at|for)\s+([A-Z][\w-]*(?:\s+[A-Z][\w-]*){0,3})/)?.[1]?.trim();
       if (employer && !entry.data['employer']) entry.data['employer'] = employer;
       const years = joined.match(/\b(?:19|20)\d{2}\b/g);
       if (years && !entry.data['period']) entry.data['period'] = years.join(' – ');
-      if (/\bcurrently\b/i.test(joined) && !/present/i.test(entry.data['period'] ?? '')) entry.data['period'] = `${entry.data['period'] ? `${entry.data['period']} – ` : ''}present`;
+      if (/\bcurrently\b/i.test(joined) && !/present/i.test(entry.data['period'] ?? '')) entry.data['period'] = `${entry.data['period'] ? `${entry.data['period']} – ` : ''}Present`;
       entry.source = `${entry.source}\n${joined}`.slice(0, 2000); roles.set(role, entry);
     }
   }
@@ -265,7 +312,7 @@ export function personalDetails(raw: string): Record<string, string> {
   if (about >= 0) {
     const body: string[] = [];
     for (let i = about + 1; i < lines.length && body.length < 10; i++) { const l = lines[i]!; if (/^[A-Z][A-Z ]{3,}$/.test(l)) break; body.push(l); }
-    if (body.join(' ').length > 20) data['summary'] = body.join(' ').slice(0, 600);
+    if (body.join(' ').length > 20) data['objective'] = body.join(' ').slice(0, 1000);
   }
   const languages = labelled(lines, /^languages?(?: spoken)?\s*:\s*(.+)$/i); if (languages) data['languages'] = languages;
   const hobbies = lines.find(l => (l.match(hobbyWords)?.length ?? 0) >= 2) ?? labelled(lines, /^(?:hobbies|interests)\s*:\s*(.+)$/i);

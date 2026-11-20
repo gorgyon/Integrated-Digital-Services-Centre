@@ -25,7 +25,7 @@ beforeAll(async () => {
     CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT 'authenticated' $$;
     GRANT USAGE ON SCHEMA auth TO anon,authenticated,service_role;
     GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon,authenticated,service_role;`);
-  for (const file of ['0000_m03_shared_schema','0001_m04_security_boundaries','0002_m04_explicit_grant_hardening','0003_m04_immutable_security_audit','0007_c2_career_profile','0010_c25_private_document_reading','0011_c2_c25_profile_draft_integration','0012_c25_structured_reading_duplicates']) {
+  for (const file of ['0000_m03_shared_schema','0001_m04_security_boundaries','0002_m04_explicit_grant_hardening','0003_m04_immutable_security_audit','0007_c2_career_profile','0010_c25_private_document_reading','0011_c2_c25_profile_draft_integration','0012_c25_structured_reading_duplicates','0013_c25_retry_unread_pages','0014_c2_personal_details','0015_c25_fill_gaps_on_duplicate','0016_c25_matric_subject_duplicates','0017_c25_unified_education_duplicates']) {
     await db.exec(readFileSync(`drizzle/migrations/${file}.sql`, 'utf8'));
   }
   await db.exec(`INSERT INTO auth.users VALUES('${id(1)}'),('${id(2)}');
@@ -112,8 +112,8 @@ describe('C2.5 private reading and review', () => {
   });
   it('preserves source wording and never invents missing years or issuers', () => {
     const result = suggestEntries([{ page: 2, text: 'Diploma in IT\nSkills\nExcel', ocr: true }]);
-    expect(result[0]).toMatchObject({ source: 'Diploma in IT', page: 2, uncertain: true, status: 'pending', data: { title: 'Diploma in IT' } });
-    expect(result[0]?.data['year']).toBeUndefined(); expect(result[0]?.data['issuer']).toBeUndefined();
+    expect(result[0]).toMatchObject({ source: 'Diploma in IT', page: 2, uncertain: true, status: 'pending', data: { level: 'Diploma in IT' } });
+    expect(result[0]?.data['year']).toBeUndefined(); expect(result[0]?.data['institution']).toBe('');
   });
   it('preserves grades and explicitly stated completion years', () => {
     const result = suggestEntries([{ page: 1, text: 'Academic results\nMathematics 78% 2024', ocr: false }]);
@@ -131,13 +131,13 @@ describe('Structured document reading', () => {
   });
   it('groups a qualification with its explicitly stated institution, field and year', () => {
     expect(suggestEntries([page('Diploma in Information Technology\nInstitution: Example College\nCompletion: 2023')])).toEqual([
-      expect.objectContaining({kind:'qualification', data:{title:'Diploma in Information Technology',issuer:'Example College',field:'Information Technology',year:'2023'},page:1})
+      expect.objectContaining({kind:'education', data:{level:'Diploma in Information Technology',institution:'Example College',field:'Information Technology',year:'2023'},page:1})
     ]);
   });
   it('ignores certificate boilerplate, legal notices and OCR fragments', () => {
     const result = suggestEntries([page('National Senior Certificate\nThis candidate is awarded a certificate\nCertificate number: ABC123\nLegal notice: qualification verification\nxx..\nMathematics 78% 2024')]);
-    expect(result.map(s => s.kind)).toEqual(['qualification','result']);
-    expect(result[0]?.data['title']).toBe('National Senior Certificate');
+    expect(result.map(s => s.kind)).toEqual(['education','result']);
+    expect(result[0]?.data['level']).toBe('National Senior Certificate');
   });
   it('extracts explicit subjects and letter results but not arbitrary percentages', () => {
     const result = suggestEntries([page('Academic transcript\nMathematics 78% 2024\nEnglish B 2024\nPass rate is 80%\nScience 120%')]);
@@ -171,6 +171,11 @@ describe('Structured draft integration security', () => {
     await db.query(`SELECT public.save_career_draft(NULL,'qualification','{"title":"Diploma in IT","year":"2023"}',NULL)`);
     expect((await db.query('SELECT * FROM public.career_profile_entries')).rows).toHaveLength(2);
   });
+  it('does not create an Education duplicate when the same qualification already exists', async () => {
+    await asUser(1);
+    await db.query(`SELECT public.save_career_draft(NULL,'qualification','{"title":"Diploma in Information Technology","issuer":"Example University","field":"Software Development"}',NULL)`);
+    await expect(db.query(`SELECT public.save_career_draft(NULL,'education','{"level":"Diploma in Information Technology","institution":"Example University","field":"Software Development"}',NULL)`)).rejects.toThrow(/already/);
+  });
   it('re-reading keeps accepted profile drafts untouched and cannot be triggered by another owner', async () => {
     await asUser(1); const claim = await begin(); await finish(claim.token);
     await db.query('SELECT public.review_document_suggestion($1,0,true,$2::jsonb)',[id(201),'{{"name":"Excel"}}'.replace('{{','{').replace('}}','}')]);
@@ -191,15 +196,19 @@ describe('designed CV pages without readable headings', () => {
   const found = structuredSuggestions([{ page: 1, text: cv, ocr: true }]);
   const of = (kind: string) => found.filter(s => s.kind === kind).map(s => s.data);
   it('reads the CV as a CV, not as a diploma', () => expect(classifyPage(cv)).toBe('cv'));
-  it('finds both qualifications separately, with the specialisation and institution', () => {
-    expect(of('qualification')).toEqual([
-      { title: 'Diploma in Information Technology', field: 'Information Technology — Software Development specialisation', issuer: 'Northern University of Technology' },
-      { title: 'National Senior Certificate', issuer: 'Riverside High School' },
+  it('combines each qualification, institution, study field and specialisation into one Education entry', () => {
+    expect(of('education')).toEqual([
+      { level: 'Diploma in Information Technology', field: 'Information Technology — Software Development specialisation', institution: 'Northern University of Technology' },
+      { level: 'National Senior Certificate', institution: 'Riverside High School' },
     ]);
+    expect(of('qualification')).toEqual([]);
   });
   it('fills education, work experience, matric subjects and skills', () => {
     expect(of('education').map(e => e['institution'])).toEqual(['Northern University of Technology', 'Riverside High School']);
-    expect(of('experience')).toEqual([{ role: 'Internet Café Assistant', employer: 'Example Printing Solutions', period: '2017' }, { role: 'Software Development (HOD)', employer: 'Acme Solutions' }]);
+    expect(of('experience')).toEqual([
+      { role: 'Internet Café Assistant', duties: 'Worked at Example Printing Solutions for a full year in 2017.\nDid Typing, Scanning, Laminating,', employer: 'Example Printing Solutions', period: '2017' },
+      { role: 'Software Development (HOD)', duties: 'Developed systems and websites for Acme Solutions. I was a team leader at the same time.', employer: 'Acme Solutions' },
+    ]);
     expect(of('result').map(r => r['subject'])).toEqual(['English', 'Mathematics', 'Physical Sciences']);
     expect(of('skill').map(s => s['name'])).toEqual(expect.arrayContaining(['JavaScript', 'Typing', 'Team leadership']));
   });
@@ -216,7 +225,7 @@ describe('designed CV pages without readable headings', () => {
     const found = structuredSuggestions([{ page: 3, text, ocr: true }]);
     expect(found.filter(s => s.kind === 'result').map(s => s.data)).toEqual([
       { subject: 'Sepedi Home Language', grade: '74% (level 6)', year: '2015' }, { subject: 'Mathematics', grade: '43% (level 3)', year: '2015' }, { subject: 'Geography', grade: '60% (level 5)', year: '2015' }]);
-    expect(found.filter(s => s.kind === 'qualification').map(s => s.data['title'])).toEqual(['National Senior Certificate']);
+    expect(found.filter(s => s.kind === 'education').map(s => s.data['level'])).toEqual(['National Senior Certificate']);
   });
   it('keeps one entry per subject: certificate marks replace the plain CV subject', () => {
     const found = structuredSuggestions([
@@ -244,12 +253,12 @@ describe('designed CV pages without readable headings', () => {
   it('fills contact details, years and dates that a designed CV prints in images or pale columns', () => {
     const text = ['JANE DOE', 'SELF', 'EMPLOYED', 'Internet Café Assistant', '. Worked at Example Printing Solutions in 2017.', '. Currently working at Example Printing',
       'TSHWANE', 'UNIVERSITY', 'OF', 'TECHNOLOGY', 'Diploma in Information Technology', '. Specialized in Software development.'].join('\n');
-    const layoutText = ['9 12 Main Road,', 'Polokwane.', '072 000 1111', 'jane.Im@example.com', 'ABOUT ME', 'Accomplished developer who loves clean software.', 'REFERENCE', 'JOHN DOE', 'Tel: 079 999 8888',
+    const layoutText = ['9 12 Main Road,', 'Polokwane.', '072 000 1111', 'jane.Im@example.com', 'ABOUT ME', 'Accomplished developer who loves clean software. Passionate about useful systems and driven by excellence.', 'REFERENCE', 'JOHN DOE', 'Tel: 079 999 8888',
       'SELF Internet Café Assistant', 'Polokwane which is a family business', 'February | 207', '2017-Present 1 .', 'TSHWANE Diploma in Information Technology', 'UNIVERSITY', 'TECHNOLOGY Specialized', 'Pretoria !', '2023 ]'].join('\n');
     const out = structuredSuggestions([{ page: 1, text, ocr: false, layoutText }]);
-    expect(out.find(s => s.kind === 'personal')?.data).toMatchObject({ phone: '072 000 1111', email: 'jane.lm@example.com', location: '12 Main Road, Polokwane', summary: 'Accomplished developer who loves clean software.' });
+    expect(out.find(s => s.kind === 'personal')?.data).toMatchObject({ phone: '072 000 1111', email: 'jane.lm@example.com', location: '12 Main Road, Polokwane', objective: 'Accomplished developer who loves clean software. Passionate about useful systems and driven by excellence.' });
     expect(out.find(s => s.kind === 'education')?.data['year']).toBe('2023');
-    expect(out.find(s => s.kind === 'qualification')?.data['year']).toBe('2023');
+    expect(out.find(s => s.kind === 'education' && /Diploma/.test(s.data['level'] ?? ''))?.data['year']).toBe('2023');
     expect(out.find(s => s.kind === 'experience')?.data['period']).toBe('February 2017 – Present');
   });
 });
