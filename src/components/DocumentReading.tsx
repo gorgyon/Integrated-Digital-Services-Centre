@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { downloadCareerDocument } from '@/lib/career-documents.functions';
 import { kindLabels, readingErrors, readingFields, ReadingError } from '@/modules/career/reading-rules';
+import { correctOcrEmail } from '@/modules/career/structured-reading';
 import type { ReadingErrorCode, Suggestion, SuggestionKind } from '@/modules/career/reading-rules';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,6 +80,7 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
       const bytes = showSource(file.base64, file.mimeType);
       const { readDocument } = await import('@/modules/career/read-document');
       const result = await readDocument(bytes, file.mimeType, setMessage, { signal: controller.current.signal, onProgress: setReadingProgress, onPagePreview });
+      correctOcrEmail(result.suggestions, (await supabase.auth.getUser()).data.user?.email);
       const { error: saveError } = await supabase.rpc('finish_document_reading', {
         _file: fileId, _token: token, _text: result.text,
         _suggestions: result.suggestions, _method: result.method,
@@ -110,6 +112,7 @@ export function DocumentReading({ fileId, name }: { fileId: string; name: string
       const bytes = showSource(file.base64, file.mimeType);
       const { readDocument } = await import('@/modules/career/read-document');
       const result = await readDocument(bytes, file.mimeType, setMessage, { signal: controller.current.signal, onProgress: setReadingProgress, onPagePreview, pages, pageTimeoutMs: RETRY_PAGE_TIMEOUT_MS });
+      correctOcrEmail(result.suggestions, (await supabase.auth.getUser()).data.user?.email);
       const merged = mergeRetriedText(savedText, pages, result.blocks, result.outcomes, result.total);
       const { error: saveError } = await supabase.rpc('finish_page_retry', { _file: fileId, _token: token, _text: merged.text, _suggestions: result.suggestions, _method: result.method });
       if (saveError) throw new Error('save');

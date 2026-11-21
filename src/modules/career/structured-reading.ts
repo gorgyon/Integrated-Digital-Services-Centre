@@ -311,6 +311,16 @@ function dropSkillFragments(out: Suggestion[]) {
 }
 
 const hobbyWords = /\b(?:singing|dancing|travel(?:l)?ing|reading|music|sports?|soccer|netball|cooking|gaming|hiking|swimming|writing|drawing|photography|gardening|fashion|movies)\b/gi;
+/** OCR confuses l, I and 1 in emails: when the read email matches the applicant's own sign-in email apart from those, use the sign-in email. */
+export function correctOcrEmail<T extends { kind: string; data: Record<string, string> }>(suggestions: T[], accountEmail: string | undefined): T[] {
+  if (!accountEmail) return suggestions;
+  const shape = (e: string) => e.toLowerCase().replace(/[il1|]/g, 'l');
+  for (const s of suggestions) {
+    const read = s.data['email'];
+    if (s.kind === 'personal' && read && read.toLowerCase() !== accountEmail.toLowerCase() && shape(read) === shape(accountEmail)) s.data['email'] = accountEmail.toLowerCase();
+  }
+  return suggestions;
+}
 /** Name, contact details, languages and interests from a CV page. Identity numbers are never included. */
 export function personalDetails(raw: string): Record<string, string> {
   const lines = fixOcr(raw).split(/\r?\n/).map(clean).filter(Boolean);

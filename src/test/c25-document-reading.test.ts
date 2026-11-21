@@ -2,7 +2,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { classifyPage, layoutFacts, layoutSkills, personalDetails, privatePageText, structuredSuggestions } from '@/modules/career/structured-reading';
+import { classifyPage, correctOcrEmail, layoutFacts, layoutSkills, personalDetails, privatePageText, structuredSuggestions } from '@/modules/career/structured-reading';
 import { suggestEntries, validateReadingInput } from '@/modules/career/reading-rules';
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 let db: PGlite;
@@ -286,4 +286,10 @@ describe('reading any resume as written', () => {
     layoutFacts(['SELF | Internet Café Assistant', 'EMPLOYED |» Worked at Example Printing', 'Polokwane | which is a family business', 'February . 2017.', '2017-Present'].join('\n'), [job]);
     expect(job.data).toMatchObject({ location: 'Polokwane', period: 'February 2017 – Present' });
   });
+});
+
+describe('email read by OCR', () => {
+  const personal = (email: string) => [{ kind: 'personal', data: { email } }];
+  it('uses the sign-in email when only l/i look-alikes differ', () => expect(correctOcrEmail(personal('jane.im@example.com'), 'jane.lm@example.com')[0]!.data['email']).toBe('jane.lm@example.com'));
+  it('keeps a genuinely different email', () => expect(correctOcrEmail(personal('other@example.com'), 'jane.lm@example.com')[0]!.data['email']).toBe('other@example.com'));
 });
