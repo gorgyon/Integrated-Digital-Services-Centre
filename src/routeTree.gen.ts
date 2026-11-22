@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedDocumentsRouteImport } from './routes/_authenticated/documents'
+import { Route as AuthenticatedOpportunitiesRouteImport } from './routes/_authenticated/opportunities'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedStaffRouteRouteImport } from './routes/_authenticated/staff/route'
 import { Route as StaffSignInRouteImport } from './routes/staff/sign-in'
@@ -51,6 +52,12 @@ const AuthenticatedDocumentsRoute = AuthenticatedDocumentsRouteImport.update({
   path: '/documents',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedOpportunitiesRoute =
+  AuthenticatedOpportunitiesRouteImport.update({
+    id: '/opportunities',
+    path: '/opportunities',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -91,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/staff': typeof AuthenticatedStaffRouteRouteWithChildren
   '/account': typeof AuthenticatedAccountRoute
   '/documents': typeof AuthenticatedDocumentsRoute
+  '/opportunities': typeof AuthenticatedOpportunitiesRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/staff/sign-in': typeof StaffSignInRoute
   '/staff/guests': typeof AuthenticatedStaffGuestsRoute
@@ -103,6 +111,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/account': typeof AuthenticatedAccountRoute
   '/documents': typeof AuthenticatedDocumentsRoute
+  '/opportunities': typeof AuthenticatedOpportunitiesRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/staff/sign-in': typeof StaffSignInRoute
   '/staff/guests': typeof AuthenticatedStaffGuestsRoute
@@ -118,6 +127,7 @@ export interface FileRoutesById {
   '/_authenticated/staff': typeof AuthenticatedStaffRouteRouteWithChildren
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/documents': typeof AuthenticatedDocumentsRoute
+  '/_authenticated/opportunities': typeof AuthenticatedOpportunitiesRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/staff/sign-in': typeof StaffSignInRoute
   '/_authenticated/staff/guests': typeof AuthenticatedStaffGuestsRoute
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/staff'
     | '/account'
     | '/documents'
+    | '/opportunities'
     | '/profile'
     | '/staff/sign-in'
     | '/staff/guests'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/account'
     | '/documents'
+    | '/opportunities'
     | '/profile'
     | '/staff/sign-in'
     | '/staff/guests'
@@ -159,6 +171,7 @@ export interface FileRouteTypes {
     | '/_authenticated/staff'
     | '/_authenticated/account'
     | '/_authenticated/documents'
+    | '/_authenticated/opportunities'
     | '/_authenticated/profile'
     | '/staff/sign-in'
     | '/_authenticated/staff/guests'
@@ -217,6 +230,13 @@ declare module '@tanstack/react-router' {
       path: '/documents'
       fullPath: '/documents'
       preLoaderRoute: typeof AuthenticatedDocumentsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/opportunities': {
+      id: '/_authenticated/opportunities'
+      path: '/opportunities'
+      fullPath: '/opportunities'
+      preLoaderRoute: typeof AuthenticatedOpportunitiesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/profile': {
@@ -284,6 +304,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedStaffRouteRoute: typeof AuthenticatedStaffRouteRouteWithChildren
   AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
   AuthenticatedDocumentsRoute: typeof AuthenticatedDocumentsRoute
+  AuthenticatedOpportunitiesRoute: typeof AuthenticatedOpportunitiesRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
 }
 
@@ -291,6 +312,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedStaffRouteRoute: AuthenticatedStaffRouteRouteWithChildren,
   AuthenticatedAccountRoute: AuthenticatedAccountRoute,
   AuthenticatedDocumentsRoute: AuthenticatedDocumentsRoute,
+  AuthenticatedOpportunitiesRoute: AuthenticatedOpportunitiesRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
 }
 

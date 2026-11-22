@@ -1,3 +1,9 @@
+# C4 — vacancy matching only
+- [ ] Match active C3 opportunities against confirmed C2 education, results, skills, experience and credentials only; classify eligible, potential and not eligible with transparent mandatory/preferred reasons and no universal matric assumption.
+- [ ] Add applicant filters, original application links and owner-only saved opportunities using existing permissions and audit triggers.
+- [ ] Keep current approved sources unchanged; do not activate Greenhouse, Lever, GovPosts or iYouth without the required identifier/permission evidence.
+- [ ] Run focused matching/security checks and desktop/mobile applicant flow checks; stop after C4.
+
 # C2.5 — document reading and career profile extraction only
 - [x] Capture the existing CV's address/contact details, complete About me paragraph, TUT study field/specialisation and employment duties; combine qualifications into Education without duplicates and add a Career objective card. Actual CV page 1 produced 28 suggestions including all requested details; no results/profile data were saved during verification. 39 focused tests passed; mobile/desktop profile layout verified.
 - [x] Improved slow-reading experience: 60-second page deadlines, partial results, page progress, elapsed time and stop control. Existing seven-page CV completed with 4 reliable pages; transcript pages 4–6 flagged unclear, not converted to suggestions. 27 tests passed; signed-in desktop/mobile preview verified, no page errors or overflow. No profile entries changed.

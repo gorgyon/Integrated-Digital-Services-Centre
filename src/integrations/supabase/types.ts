@@ -613,6 +613,42 @@ export type Database = {
           },
         ]
       }
+      saved_opportunities: {
+        Row: {
+          created_at: string
+          customer_id: string
+          id: string
+          opportunity_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          id?: string
+          opportunity_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          id?: string
+          opportunity_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_opportunities_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_opportunities_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       security_audit: {
         Row: {
           action: string

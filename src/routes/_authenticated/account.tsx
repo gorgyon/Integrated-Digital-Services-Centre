@@ -90,9 +90,11 @@ function AccountPage() {
             <Link to="/profile" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
               My career profile
             </Link>
+            <Link to="/opportunities" search={{ category: "all", location: "", closing: "all", status: "all", savedOnly: false, page: 1 }} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+              Matched opportunities
+            </Link>
             <p className="text-sm text-muted-foreground">
-              Online services are still in preparation. When they open, your orders,
-              applications and documents will appear here.
+              Compare current vacancies with your confirmed career profile, save opportunities and apply on the original source.
             </p>
           </CardContent>
         </Card>
